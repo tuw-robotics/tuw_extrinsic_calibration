@@ -8,15 +8,21 @@ project(tuw_extrinsic_camera)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  boost
-  cv_bridge
-  roscpp
-  rospy
-)
+        roscpp
+        rospy
+        sensor_msgs
+        tf
+        tuw_geometry
+        tuw_geometry_msgs
+        cv_bridge
+        image_geometry
+        )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
 
+find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -104,10 +110,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES tuw_extrinsic_camera
-#  CATKIN_DEPENDS boost cv_bridge roscpp rospy
-#  DEPENDS system_lib
+        INCLUDE_DIRS include
+        #  LIBRARIES tuw_extrinsic_camera
+        CATKIN_DEPENDS cv_bridge roscpp rospy tuw_geometry tuw_geometry_msgs tf cv_bridge image_geometry
+        #  DEPENDS system_lib
 )
 
 ###########
@@ -117,8 +123,11 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
+        include
+        ${catkin_INCLUDE_DIRS}
+        ${PYTHON_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -150,6 +159,20 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+
+add_executable(laser2cam_calibration_node
+        src/laser2cam_calibration_node.cpp)
+
+add_dependencies(laser2cam_calibration_node
+        ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(laser2cam_calibration_node
+        ${catkin_LIBRARIES}
+        ${OpenCV_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${EIGEN_LIBRARIES}
+        )
+
 
 #############
 ## Install ##
@@ -185,6 +208,7 @@ include_directories(
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
+
 
 #############
 ## Testing ##
