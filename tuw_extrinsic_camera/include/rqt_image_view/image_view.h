@@ -55,6 +55,8 @@
 #include <vector>
 
 #include <image_geometry/pinhole_camera_model.h>
+#include <boost/circular_buffer.hpp>
+#include <sensor_msgs/LaserScan.h>
 
 namespace rqt_image_view {
 
@@ -121,6 +123,8 @@ namespace rqt_image_view {
 
     virtual void callbackCameraInfo(const sensor_msgs::CameraInfo::ConstPtr &_msg);
 
+    virtual void callbackLaser(const sensor_msgs::LaserScanConstPtr &_laser);
+
     virtual void invertPixels(int x, int y);
 
     QList<int> getGridIndices(int size) const;
@@ -133,9 +137,10 @@ namespace rqt_image_view {
 
     image_transport::Subscriber subscriber_;
     ros::Subscriber sub_camera_info_;
+    ros::Subscriber sub_laser_;
 
     std::unique_ptr<image_geometry::PinholeCameraModel> camera_model_;
-    std::vector<cv::Point2d> clickedPoints_;
+    boost::circular_buffer<cv::Point2d> clickedPoints_;
 
     cv::Mat conversion_mat_;
 

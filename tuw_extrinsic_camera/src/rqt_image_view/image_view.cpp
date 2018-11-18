@@ -107,6 +107,8 @@ namespace rqt_image_view {
     hide_toolbar_action_->setCheckable(true);
     ui_.image_frame->addAction(hide_toolbar_action_);
     connect(hide_toolbar_action_, SIGNAL(toggled(bool)), this, SLOT(onHideToolbarChanged(bool)));
+
+    clickedPoints_ = boost::circular_buffer<cv::Point2d>(4);
   }
 
   void ImageView::shutdownPlugin() {
@@ -295,6 +297,7 @@ namespace rqt_image_view {
       image_transport::TransportHints hints(transport.toStdString());
 
       std::cout << "subscribing to " << topic.toStdString() << std::endl;
+      std::cout << "subscribing to " << topic_camera_info << std::endl;
       try {
         subscriber_ = it.subscribe(topic.toStdString(), 1, &ImageView::callbackImage, this, hints);
         //qDebug("ImageView::onTopicChanged() to topic '%s' with transport '%s'", topic.toStdString().c_str(), subscriber_.getTransport().c_str());
@@ -303,6 +306,7 @@ namespace rqt_image_view {
       }
 
       sub_camera_info_ = getNodeHandle().subscribe(topic_camera_info, 1, &ImageView::callbackCameraInfo, this);
+      sub_laser_ = getNodeHandle().subscribe(std::string("/r0/laser0"), 1, &ImageView::callbackLaser, this);
     }
 
     onMousePublish(ui_.publish_click_location_check_box->isChecked());
@@ -378,7 +382,6 @@ namespace rqt_image_view {
       clickedPoints_.push_back(cv::Point2d(clickCanvasLocation.x, clickCanvasLocation.y));
 
       cv::circle(conversion_mat_, clickedPoints_.back(), 2, cv::Scalar(0, 255, 0), 2);
-
       QImage image(conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
                    QImage::Format_RGB888);
       ui_.image_frame->setImage(image);
@@ -507,6 +510,11 @@ namespace rqt_image_view {
     }
   }
 
+  void ImageView::callbackLaser(const sensor_msgs::LaserScanConstPtr &_laser) {
+    //@ToDo: here
+    //for ()
+  }
+
   void ImageView::callbackCameraInfo(const sensor_msgs::CameraInfo::ConstPtr &_msg) {
     camera_model_.reset(new image_geometry::PinholeCameraModel());
     camera_model_->fromCameraInfo(_msg);
@@ -591,6 +599,13 @@ namespace rqt_image_view {
     if (clickedPoints_.size()) {
       for (int i = 0; i < clickedPoints_.size(); ++i) {
         cv::circle(conversion_mat_, clickedPoints_[i], 2, cv::Scalar(0, 255, 0), 2);
+        if (camera_model_) {
+          cv::Point3d pt3d = camera_model_->projectPixelTo3dRay(clickedPoints_[i]);
+          cv::putText(conversion_mat_,
+                      ("(" + std::to_string(pt3d.x) + ", " + std::to_string(pt3d.y) + std::to_string(pt3d.z)
+                       + ")"), clickedPoints_[i] + cv::Point2d(1, 0), CV_FONT_HERSHEY_COMPLEX, 1,
+                      cv::Scalar(0, 255, 0));
+        }
       }
     }
 
