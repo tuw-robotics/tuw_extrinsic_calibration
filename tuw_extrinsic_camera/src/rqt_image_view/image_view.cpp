@@ -277,15 +277,32 @@ namespace rqt_image_view {
     QString topic = parts.first();
     QString transport = parts.length() == 2 ? parts.last() : "raw";
 
+    std::string image_topic = topic.toStdString();
+    std::string topic_camera_info;
+    for (size_t i = image_topic.length() - 1; i >= 0; --i) {
+      if (image_topic[i] == '/') {
+        topic_camera_info.resize(i + 1);
+        std::copy(image_topic.begin(), image_topic.begin() + i + 1,
+                  topic_camera_info.begin());
+        break;
+      }
+    }
+    topic_camera_info += "camera_info";
+    std::cout << "camera info topic " << topic_camera_info << std::endl;
+
     if (!topic.isEmpty()) {
       image_transport::ImageTransport it(getNodeHandle());
       image_transport::TransportHints hints(transport.toStdString());
+
+      std::cout << "subscribing to " << topic.toStdString() << std::endl;
       try {
         subscriber_ = it.subscribe(topic.toStdString(), 1, &ImageView::callbackImage, this, hints);
         //qDebug("ImageView::onTopicChanged() to topic '%s' with transport '%s'", topic.toStdString().c_str(), subscriber_.getTransport().c_str());
       } catch (image_transport::TransportLoadException &e) {
         QMessageBox::warning(widget_, tr("Loading image transport plugin failed"), e.what());
       }
+
+      sub_camera_info_ = getNodeHandle().subscribe(topic_camera_info, 1, &ImageView::callbackCameraInfo, this);
     }
 
     onMousePublish(ui_.publish_click_location_check_box->isChecked());
@@ -347,7 +364,6 @@ namespace rqt_image_view {
   }
 
   void ImageView::onMouseLeft(int x, int y) {
-    std::cout << "mouse image view" << std::endl;
     if (ui_.publish_click_location_check_box->isChecked() && !ui_.image_frame->getImage().isNull()) {
       geometry_msgs::Point clickCanvasLocation;
       // Publish click location in pixel coordinates
@@ -359,22 +375,29 @@ namespace rqt_image_view {
 
       geometry_msgs::Point clickLocation = clickCanvasLocation;
 
-      switch (rotate_state_) {
-        case ROTATE_90:
-          clickLocation.x = clickCanvasLocation.y;
-          clickLocation.y = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
-          break;
-        case ROTATE_180:
-          clickLocation.x = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
-          clickLocation.y = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
-          break;
-        case ROTATE_270:
-          clickLocation.x = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
-          clickLocation.y = clickCanvasLocation.x;
-          break;
-        default:
-          break;
-      }
+      clickedPoints_.push_back(cv::Point2d(clickCanvasLocation.x, clickCanvasLocation.y));
+
+      cv::circle(conversion_mat_, clickedPoints_.back(), 2, cv::Scalar(0, 255, 0), 2);
+
+      QImage image(conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
+                   QImage::Format_RGB888);
+      ui_.image_frame->setImage(image);
+      //switch (rotate_state_) {
+      //  case ROTATE_90:
+      //    clickLocation.x = clickCanvasLocation.y;
+      //    clickLocation.y = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
+      //    break;
+      //  case ROTATE_180:
+      //    clickLocation.x = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
+      //    clickLocation.y = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
+      //    break;
+      //  case ROTATE_270:
+      //    clickLocation.x = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
+      //    clickLocation.y = clickCanvasLocation.x;
+      //    break;
+      //  default:
+      //    break;
+      //}
 
       pub_mouse_left_.publish(clickLocation);
     }
@@ -484,6 +507,11 @@ namespace rqt_image_view {
     }
   }
 
+  void ImageView::callbackCameraInfo(const sensor_msgs::CameraInfo::ConstPtr &_msg) {
+    camera_model_.reset(new image_geometry::PinholeCameraModel());
+    camera_model_->fromCameraInfo(_msg);
+  }
+
   void ImageView::callbackImage(const sensor_msgs::Image::ConstPtr &msg) {
     try {
       // First let cv_bridge do its magic
@@ -558,6 +586,12 @@ namespace rqt_image_view {
       }
       default:
         break;
+    }
+
+    if (clickedPoints_.size()) {
+      for (int i = 0; i < clickedPoints_.size(); ++i) {
+        cv::circle(conversion_mat_, clickedPoints_[i], 2, cv::Scalar(0, 255, 0), 2);
+      }
     }
 
     // image must be copied since it uses the conversion_mat_ for storage which is asynchronously overwritten in the next callback invocation

@@ -173,7 +173,7 @@ namespace rqt_image_view {
   }
 
   void RatioLayoutedFrame::mousePressEvent(QMouseEvent *mouseEvent) {
-    std::cout << "emit mouse event" << std::endl;
+    std::cout << "emit mouse event " << "x: " << mouseEvent->x() << " y: " << mouseEvent->y() << std::endl;
     if (mouseEvent->button() == Qt::LeftButton) {
       emit mouseLeft(mouseEvent->x(), mouseEvent->y());
     }
