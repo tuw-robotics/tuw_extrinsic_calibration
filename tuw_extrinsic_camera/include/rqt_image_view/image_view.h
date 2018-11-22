@@ -122,6 +122,8 @@ namespace rqt_image_view {
   
   protected:
     
+    virtual void publishFiducials();
+    
     virtual void callbackImage( const sensor_msgs::Image::ConstPtr &msg );
     
     virtual void callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg );
@@ -154,6 +156,7 @@ namespace rqt_image_view {
     std::vector<cv::Point2d> laser2image_points_;
     
     std::map<std::string, std::shared_ptr<tf::StampedTransform>> tfMap_;
+    std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;
   
   private:
     enum RotateState {
@@ -168,6 +171,7 @@ namespace rqt_image_view {
     
     QString arg_topic_name;
     ros::Publisher pub_mouse_left_;
+    ros::Publisher pub_fiducial_detection_;
     
     bool pub_topic_custom_;
     

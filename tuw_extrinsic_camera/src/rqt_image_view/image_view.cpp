@@ -43,6 +43,7 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <tf/transform_datatypes.h>
+#include <marker_msgs/FiducialDetection.h>
 
 namespace rqt_image_view {
   
@@ -371,6 +372,8 @@ namespace rqt_image_view {
     } else {
       pub_mouse_left_.shutdown();
     }
+    
+    pub_fiducial_detection_ = getNodeHandle().advertise<marker_msgs::FiducialDetection>( "/fiducials", 1000 );
   }
   
   void ImageView::onMouseLeft( int x, int y ) {
@@ -407,6 +410,8 @@ namespace rqt_image_view {
       //  default:
       //    break;
       //}
+      
+      
       
       pub_mouse_left_.publish( clickLocation );
     }
@@ -557,8 +562,11 @@ namespace rqt_image_view {
   
   void ImageView::callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg ) {
     //std::cout << "callbackCamerainfo" << std::endl;
-    if ( measurement_image_ ) {
-      measurement_image_->setCameraInfo( _msg );
+    
+    camera_model_.reset( new image_geometry::PinholeCameraModel());
+    camera_model_->fromCameraInfo( _msg );
+    if ( measurement_image_ && !measurement_image_->getCameraModel()) {
+      measurement_image_->setCameraModel( camera_model_ );
     }
     //std::cout << "callbackCamerainfo end" << std::endl;
   }
@@ -571,9 +579,13 @@ namespace rqt_image_view {
       conversion_mat_ = cv_ptr->image;
       
       tf::StampedTransform tf;
-      if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
-        measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+      measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+      if ( camera_model_ ) {
+        measurement_image_->setCameraModel( camera_model_ );
       }
+      //if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
+      //  measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+      //}
       
       if ( num_gridlines_ > 0 )
         overlayGrid();
@@ -682,6 +694,121 @@ namespace rqt_image_view {
     onZoom1( ui_.zoom_1_push_button->isChecked());
     
     //std::cout << "end image cb" << std::endl;
+    publishFiducials();
+  }
+  
+  void ImageView::publishFiducials() {
+    if ( clickedPoints_.size() == 4 ) {
+      marker_msgs::FiducialDetection fd;
+      
+      if ( measurement_image_->getCameraModel()) {
+        std::cout << "Has camera model" << std::endl;
+      } else {
+        std::cout << "Has no camera model" << std::endl;
+      }
+
+#ifdef ENABLE_PUBLISHING
+      cv::Matx33d K = measurement_image_->getCameraModel()->intrinsicMatrix();
+      cv::Mat D = measurement_image_->getCameraModel()->distortionCoeffs();
+      
+      size_t k = 0;
+      for ( size_t i = 0; i < K.rows; ++i ) {
+        for ( size_t j = 0; j < K.cols; ++j ) {
+          fd.camera_k[k] = K( i, j );
+          k++;
+        }
+      }
+      
+      for ( int i = 0; i < 5; ++i ) {
+        fd.camera_d.push_back( 0 );
+      }
+      
+      for ( size_t i = 0; i < K.rows; ++i ) {
+        for ( size_t j = 0; j < K.cols; ++j ) {
+          //fd.camera_d.push_back( D.at<double>( i, j ));
+          //std::cout << D.at<double>( i, j ) << ", " << std::endl;
+        }
+      }
+      
+      fd.fiducial.resize( 1 );
+      fd.fiducial[0].ids = {0};
+      fd.fiducial[0].ids_confidence = {1.0};
+      
+      size_t point_count = 0;
+      //Fixed order bottom left, top left, top right, bottom right
+      for ( const cv::Point2d &pt : clickedPoints_ ) {
+        geometry_msgs::Point image_point;
+        image_point.x = pt.x;
+        image_point.y = pt.y;
+        fd.fiducial.back().image_points.push_back( image_point );
+        
+        geometry_msgs::Point object_point;
+        if ( point_count == 0 ) {
+          object_point.x = 0;
+          object_point.y = 0;
+          object_point.z = 0;
+        } else if ( point_count == 1 ) {
+          object_point.x = 0;
+          object_point.y = 0;
+          object_point.z = 2.0;
+        } else if ( point_count == 2 ) {
+          object_point.x = 0;
+          object_point.y = 0.9;
+          object_point.z = 0.0;
+        } else if ( point_count == 3 ) {
+          object_point.x = 0;
+          object_point.y = 0.9;
+          object_point.z = 2.0;
+        }
+        
+        fd.fiducial.back().object_points.push_back( object_point );
+        point_count++;
+      }
+      
+      pub_fiducial_detection_.publish( fd );
+    //}
+#else
+      size_t point_count = 0;
+      std::vector<cv::Point3f> object_points;
+      for ( const cv::Point2d &pt : clickedPoints_ ) {
+        
+        cv::Point3d object_point;
+        if ( point_count == 0 ) {
+          object_point.x = 0;
+          object_point.y = 0;
+          object_point.z = 0;
+        } else if ( point_count == 1 ) {
+          object_point.x = 0;
+          object_point.y = 0;
+          object_point.z = 2.0f;
+        } else if ( point_count == 2 ) {
+          object_point.x = 0;
+          object_point.y = 0.9f;
+          object_point.z = 0.0f;
+        } else if ( point_count == 3 ) {
+          object_point.x = 0;
+          object_point.y = 0.9f;
+          object_point.z = 2.0f;
+        }
+        
+        object_points.push_back( object_point );
+        point_count++;
+        
+      }
+      
+      cv::Mat rv, tv;
+      std::vector<cv::Point2f> image_pnts;
+      image_pnts.resize( clickedPoints_.size());
+      std::copy( clickedPoints_.begin(), clickedPoints_.end(), image_pnts.begin());
+      cv::Matx33d Kmat = measurement_image_->getCameraModel()->intrinsicMatrix();
+      cv::Mat Dmat = measurement_image_->getCameraModel()->distortionCoeffs();
+      
+      cv::solvePnP( object_points, image_pnts, Kmat,
+                    Dmat, rv, tv );
+      std::cout << "tvec " << tv << std::endl;
+      std::cout << "rvec " << rv << std::endl;
+#endif
+    }
   }
   
   bool ImageView::getStaticTF( const std::string &world_frame, const std::string &source_frame,
