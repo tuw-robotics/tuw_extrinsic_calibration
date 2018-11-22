@@ -805,8 +805,26 @@ namespace rqt_image_view {
       
       cv::solvePnP( object_points, image_pnts, Kmat,
                     Dmat, rv, tv );
-      std::cout << "tvec " << tv << std::endl;
-      std::cout << "rvec " << rv << std::endl;
+      
+      cv::Mat m = cv::Mat::eye( 4, 4, CV_64FC1);
+      cv::Mat R33 = cv::Mat( m, cv::Rect( 0, 0, 3, 3 ));
+      cv::Rodrigues( rv, R33 );
+      //std::cout << "size tv " << tv.size() << std::endl;
+      //std::cout << "size rv " << rv.size() << std::endl;
+      //for ( int i = 0; i < R33.rows; ++i ) {
+      //  for ( int j = 0; j < R33.cols; ++j ) {
+      //    m.at<double>( i, j ) = R33.at<double>( i, j );
+      //  }
+      //}
+      
+      for ( int i = 0; i < 3; ++i ) {
+        m.at<double>( i, 3 ) = tv.at<double>( 0, i );
+      }
+      
+      std::cout << m << std::endl;
+      std::cout << "tv " << tv << std::endl;
+      std::cout << "rv " << rv << std::endl;
+
 #endif
     }
   }
