@@ -23,6 +23,7 @@
     <build_depend>rqt_gui_cpp</build_depend>
     <build_depend>sensor_msgs</build_depend>
     <build_depend>image_geometry</build_depend>
+    <build_depend>tuw_geometry</build_depend>
     <build_depend>tuw_measurement_utils</build_depend>
     <build_depend>marker_msgs</build_depend>
 
@@ -34,6 +35,7 @@
     <run_depend>sensor_msgs</run_depend>
     <run_depend>image_geometry</run_depend>
     <run_depend>tuw_measurement_utils</run_depend>
+    <run_depend>tuw_geometry</run_depend>
     <run_depend>marker_msgs</run_depend>
 
     <export>

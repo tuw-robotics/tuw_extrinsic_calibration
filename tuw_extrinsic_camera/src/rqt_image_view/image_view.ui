@@ -9,15 +9,30 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>425</width>
-    <height>300</height>
+    <width>724</width>
+    <height>413</height>
    </rect>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>724</width>
+    <height>2048</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Image View</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
     <number>0</number>
    </property>
    <item>
@@ -45,11 +60,11 @@
         </item>
         <item>
          <widget class="QPushButton" name="zoom_1_push_button">
-          <property name="toolTip">
-           <string>Original zoom</string>
-          </property>
           <property name="enabled">
            <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>Original zoom</string>
           </property>
           <property name="icon">
            <iconset theme="zoom-original">
@@ -66,13 +81,13 @@
            <string># of gridlines to overlay</string>
           </property>
           <property name="minimum">
-           <double>0</double>
+           <number>0</number>
           </property>
           <property name="maximum">
-           <double>20</double>
+           <number>20</number>
           </property>
           <property name="value">
-           <double>0</double>
+           <number>0</number>
           </property>
          </widget>
         </item>
@@ -170,8 +185,7 @@
           </property>
           <property name="icon">
            <iconset theme="object-rotate-left">
-            <normaloff/>
-           </iconset>
+            <normaloff>.</normaloff>.</iconset>
           </property>
          </widget>
         </item>
@@ -192,8 +206,7 @@
           </property>
           <property name="icon">
            <iconset theme="object-rotate-right">
-            <normaloff/>
-           </iconset>
+            <normaloff>.</normaloff>.</iconset>
           </property>
          </widget>
         </item>
@@ -212,14 +225,85 @@
         </item>
        </layout>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QCheckBox" name="laser_scan_checkbox">
+          <property name="text">
+           <string>Use range (green)</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="sliderLeftLaser">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="sliderRightLaser">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="image_layout" stretch="1,0">
+    <layout class="QHBoxLayout" name="image_layout" stretch="0,0">
      <property name="spacing">
       <number>0</number>
      </property>
+     <item>
+      <widget class="QScrollArea" name="scrollAreaLaser">
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="scrollAreaWidgetLaser">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>359</width>
+          <height>293</height>
+         </rect>
+        </property>
+        <widget class="rqt_image_view::RatioLayoutedFrame" name="laser_frame">
+         <property name="geometry">
+          <rect>
+           <x>-1</x>
+           <y>-1</y>
+           <width>361</width>
+           <height>321</height>
+          </rect>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+        </widget>
+       </widget>
+      </widget>
+     </item>
      <item>
       <widget class="QScrollArea" name="scrollArea">
        <property name="frameShape">
@@ -233,8 +317,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>767</width>
-          <height>650</height>
+          <width>361</width>
+          <height>295</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -244,34 +328,43 @@
          </sizepolicy>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_4">
-          <item>
-           <widget class="rqt_image_view::RatioLayoutedFrame" name="image_frame">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>80</width>
-              <height>60</height>
-             </size>
-            </property>
-            <property name="contextMenuPolicy">
-             <enum>Qt::ActionsContextMenu</enum>
-            </property>
-            <property name="frameShape">
-             <enum>QFrame::NoFrame</enum>
-            </property>
-            <property name="lineWidth">
-             <number>1</number>
-            </property>
-           </widget>
-          </item>
-          <property name="margin">
-           <number>1</number>
-          </property>
+         <property name="leftMargin">
+          <number>1</number>
+         </property>
+         <property name="topMargin">
+          <number>1</number>
+         </property>
+         <property name="rightMargin">
+          <number>1</number>
+         </property>
+         <property name="bottomMargin">
+          <number>1</number>
+         </property>
+         <item>
+          <widget class="rqt_image_view::RatioLayoutedFrame" name="image_frame">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>60</height>
+            </size>
+           </property>
+           <property name="contextMenuPolicy">
+            <enum>Qt::ActionsContextMenu</enum>
+           </property>
+           <property name="frameShape">
+            <enum>QFrame::NoFrame</enum>
+           </property>
+           <property name="lineWidth">
+            <number>1</number>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </widget>

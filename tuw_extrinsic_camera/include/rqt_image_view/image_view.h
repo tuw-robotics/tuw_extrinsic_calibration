@@ -60,6 +60,7 @@
 #include <tuw_measurement_utils/measurements.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
+#include <tuw_geometry/figure.h>
 
 namespace rqt_image_view {
   
@@ -106,6 +107,10 @@ namespace rqt_image_view {
     
     virtual void saveImage();
     
+    virtual void onLeftSliderValChanged( int val );
+    
+    virtual void onRightSliderValChanged( int val );
+    
     virtual void updateNumGridlines();
     
     virtual void onMousePublish( bool checked );
@@ -119,6 +124,8 @@ namespace rqt_image_view {
     virtual void onRotateLeft();
     
     virtual void onRotateRight();
+    
+    virtual void onLaserScanBoxToggle( bool val );
   
   protected:
     
@@ -133,6 +140,10 @@ namespace rqt_image_view {
     virtual void invertPixels( int x, int y );
     
     QList<int> getGridIndices( int size ) const;
+    
+    virtual bool updateLaser2Image();
+    
+    virtual void updateLaser2Map();
     
     virtual void overlayGrid();
     
@@ -157,6 +168,11 @@ namespace rqt_image_view {
     
     std::map<std::string, std::shared_ptr<tf::StampedTransform>> tfMap_;
     std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;
+    
+    tuw::FigurePtr figure_local_;
+    
+    double leftSplitAngle_;
+    double rightSplitAngle_;
   
   private:
     enum RotateState {
@@ -172,6 +188,7 @@ namespace rqt_image_view {
     QString arg_topic_name;
     ros::Publisher pub_mouse_left_;
     ros::Publisher pub_fiducial_detection_;
+    bool use_laser_scan_range_;
     
     bool pub_topic_custom_;
     

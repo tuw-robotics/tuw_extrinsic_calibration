@@ -44,6 +44,7 @@
 #include <QPainter>
 #include <tf/transform_datatypes.h>
 #include <marker_msgs/FiducialDetection.h>
+#include <opencv2/highgui.hpp>
 
 namespace rqt_image_view {
   
@@ -87,6 +88,7 @@ namespace rqt_image_view {
     pub_topic_custom_ = false;
     
     ui_.image_frame->setOuterLayout( ui_.image_layout );
+    ui_.laser_frame->setOuterLayout( ui_.image_layout );
     
     QRegExp rx(
         "([a-zA-Z/][a-zA-Z0-9_/]*)?" ); //see http://www.ros.org/wiki/ROS/Concepts#Names.Valid_Names (but also accept an empty field)
@@ -100,6 +102,22 @@ namespace rqt_image_view {
     
     connect( ui_.rotate_left_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateLeft()) );
     connect( ui_.rotate_right_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateRight()) );
+    connect( ui_.laser_scan_checkbox, SIGNAL( toggled( bool )), this, SLOT( onLaserScanBoxToggle( bool )) );
+    
+    ui_.sliderLeftLaser->setMinimum( 0 );
+    ui_.sliderLeftLaser->setMaximum( 100 );
+    ui_.sliderLeftLaser->setValue( 0 );
+    ui_.sliderRightLaser->setMinimum( 0 );
+    ui_.sliderRightLaser->setMaximum( 100 );
+    ui_.sliderRightLaser->setValue( 100 );
+    
+    connect( ui_.sliderLeftLaser, SIGNAL( valueChanged( int )), this, SLOT( onLeftSliderValChanged( int )) );
+    connect( ui_.sliderRightLaser, SIGNAL( valueChanged( int )), this, SLOT( onRightSliderValChanged( int )) );
+    
+    leftSplitAngle_ = -M_PI / 2.0;
+    rightSplitAngle_ = M_PI / 2.0;
+    
+    //connect( ui_.laser_frame, ,this, SLOT(onLaserTopichChanged() ));
     
     // Make sure we have enough space for "XXX °"
     ui_.rotate_label->setMinimumWidth(
@@ -112,11 +130,38 @@ namespace rqt_image_view {
     connect( hide_toolbar_action_, SIGNAL( toggled( bool )), this, SLOT( onHideToolbarChanged( bool )) );
     
     clickedPoints_ = boost::circular_buffer<cv::Point2d>( 4 );
+    
+    figure_local_.reset( new tuw::Figure( "laser2map" ));
+    figure_local_->init( 500, 500, -5, 5, -5, 5, M_PI / 2.0, 1, 1 );
   }
   
   void ImageView::shutdownPlugin() {
     subscriber_.shutdown();
     pub_mouse_left_.shutdown();
+  }
+  
+  void ImageView::onLaserScanBoxToggle( bool val ) {
+    use_laser_scan_range_ = val;
+  }
+  
+  void ImageView::onLeftSliderValChanged( int val ) {
+    if ( measurement_laser_ ) {
+      double angle_min = measurement_laser_->getLaser().angle_min;
+      double angle_max = measurement_laser_->getLaser().angle_max;
+      rightSplitAngle_ =
+          ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
+      std::cout << "left angle " << leftSplitAngle_ << std::endl;
+    }
+  }
+  
+  void ImageView::onRightSliderValChanged( int val ) {
+    if ( measurement_laser_ ) {
+      double angle_min = measurement_laser_->getLaser().angle_min;
+      double angle_max = measurement_laser_->getLaser().angle_max;
+      leftSplitAngle_ =
+          ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
+      std::cout << "right angle " << rightSplitAngle_ << std::endl;
+    }
   }
   
   void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
@@ -138,7 +183,6 @@ namespace rqt_image_view {
                                    const qt_gui_cpp::Settings &instance_settings ) {
     bool zoom1_checked = instance_settings.value( "zoom1", false ).toBool();
     ui_.zoom_1_push_button->setChecked( zoom1_checked );
-    
     bool dynamic_range_checked = instance_settings.value( "dynamic_range", false ).toBool();
     ui_.dynamic_range_check_box->setChecked( dynamic_range_checked );
     
@@ -521,43 +565,90 @@ namespace rqt_image_view {
     }
   }
   
+  void ImageView::updateLaser2Map() {
+    if ( measurement_laser_ ) {
+      figure_local_->clear();
+      
+      {
+        double c_left = cos( leftSplitAngle_ ) * 10.0;
+        double s_left = sin( leftSplitAngle_ ) * 10.0;
+        auto pleft = tuw::Point2D( c_left, s_left );
+        double c_right = cos( rightSplitAngle_ ) * 10.0;
+        double s_right = sin( rightSplitAngle_ ) * 10.0;
+        auto pright = tuw::Point2D( c_right, s_right );
+        
+        figure_local_->line( tuw::Point2D( 0, 0 ), pleft, figure_local_->blue );
+        figure_local_->line( tuw::Point2D( 0, 0 ), pright, figure_local_->blue );
+      }
+      
+      for ( auto it_l = measurement_laser_->begin();
+            it_l != measurement_laser_->end();
+            ++it_l ) {
+        if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ ) {
+          figure_local_->circle( it_l->end_point, 2, figure_local_->green );
+        } else {
+          figure_local_->circle( it_l->end_point, 2, figure_local_->magenta );
+          it_l->set_valid( false );
+        }
+      }
+      
+      cv::Mat view = figure_local_->view();
+      //cv::imshow( "view", view );
+      QImage image( view.data, view.cols, view.rows, view.step[0],
+                    QImage::Format_RGB888 );
+      ui_.laser_frame->setImage( image );
+      ui_.laser_frame->setInnerFrameFixedSize( image.size());
+      ui_.laser_frame->setEnabled( true );
+      ui_.laser_frame->setVisible( true );
+      //std::cout << std::to_string( ui_.laser_frame->size().width()) << ", "
+      //          << std::to_string( ui_.laser_frame->size().height()) << std::endl;
+    }
+  }
+  
+  bool ImageView::updateLaser2Image() {
+    if ( measurement_image_ && measurement_image_->getCameraModel() && measurement_laser_ ) {
+      
+      laser2image_points_.clear();
+      const auto T_WC = measurement_image_->getTfWorldSensor();
+      const auto T_WL = measurement_laser_->getTfWorldSensor();
+      const auto T_CL = T_WC.inverse() * T_WL;
+      
+      std::size_t i = 0;
+      laser2image_points_.resize( measurement_laser_->size());
+      
+      for ( auto beam_it = measurement_laser_->begin();
+            beam_it != measurement_laser_->end();
+            ++beam_it, ++i ) {
+        Eigen::Vector4d laser_in_image = T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
+        laser_in_image = laser_in_image / laser_in_image[3];
+        
+        //const auto pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
+        const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
+        laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
+      }
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
   void ImageView::callbackLaser( const sensor_msgs::LaserScan &_laser ) {
     //@ToDo: here
     //std::cout << "laser cb" << std::endl;
     laser2image_points_.clear();
     
     tf::StampedTransform tf;
-    if ( !getStaticTF( "/r0/base_link", _laser.header.frame_id, tf, false )) {
-      //std::cout << "no laser gotten, return" << std::endl;
-      return;
-    }
+    tf.setIdentity();
+    //if ( !getStaticTF( "/r0/base_link", _laser.header.frame_id, tf, false )) {
+    //  //std::cout << "no laser gotten, return" << std::endl;
+    //  return;
+    //}
     
     measurement_laser_.reset( new tuw::LaserMeasurement( _laser, tf ));
     measurement_laser_->initFromScan();
     
-    if ( !measurement_image_ || !measurement_image_->getCameraModel()) {
-      return;
-    }
-    
-    const auto T_WC = measurement_image_->getTfWorldSensor();
-    const auto T_WL = measurement_laser_->getTfWorldSensor();
-    const auto T_CL = T_WC.inverse() * T_WL;
-    
-    std::size_t i = 0;
-    laser2image_points_.resize( measurement_laser_->size());
-    
-    for ( auto beam_it = measurement_laser_->begin();
-          beam_it != measurement_laser_->end();
-          ++beam_it, ++i ) {
-      Eigen::Vector4d laser_in_image = T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
-      laser_in_image = laser_in_image / laser_in_image[3];
-      
-      //const auto pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
-      const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
-      laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
-    }
-    
-    //std::cout << "laser cb end" << std::endl;
+    updateLaser2Map();
   }
   
   void ImageView::callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg ) {
@@ -743,6 +834,7 @@ namespace rqt_image_view {
         fd.fiducial.back().image_points.push_back( image_point );
         
         geometry_msgs::Point object_point;
+        
         if ( point_count == 0 ) {
           object_point.x = 0;
           object_point.y = 0;
@@ -750,15 +842,15 @@ namespace rqt_image_view {
         } else if ( point_count == 1 ) {
           object_point.x = 0;
           object_point.y = 0;
-          object_point.z = 2.0;
+          object_point.z = 2.0f;
         } else if ( point_count == 2 ) {
           object_point.x = 0;
-          object_point.y = 0.9;
-          object_point.z = 0.0;
+          object_point.y = 0.9f;
+          object_point.z = 2.0f;
         } else if ( point_count == 3 ) {
           object_point.x = 0;
-          object_point.y = 0.9;
-          object_point.z = 2.0;
+          object_point.y = 0.9f;
+          object_point.z = 0.0f;
         }
         
         fd.fiducial.back().object_points.push_back( object_point );
@@ -784,11 +876,11 @@ namespace rqt_image_view {
         } else if ( point_count == 2 ) {
           object_point.x = 0;
           object_point.y = 0.9f;
-          object_point.z = 0.0f;
+          object_point.z = 2.0f;
         } else if ( point_count == 3 ) {
           object_point.x = 0;
           object_point.y = 0.9f;
-          object_point.z = 2.0f;
+          object_point.z = 0.0f;
         }
         
         object_points.push_back( object_point );
@@ -806,8 +898,9 @@ namespace rqt_image_view {
       cv::solvePnP( object_points, image_pnts, Kmat,
                     Dmat, rv, tv );
       
-      cv::Mat m = cv::Mat::eye( 4, 4, CV_64FC1);
-      cv::Mat R33 = cv::Mat( m, cv::Rect( 0, 0, 3, 3 ));
+      //This is the tf from the door to the camera
+      cv::Mat T_CD = cv::Mat::eye( 4, 4, CV_64FC1);
+      cv::Mat R33 = cv::Mat( T_CD, cv::Rect( 0, 0, 3, 3 ));
       cv::Rodrigues( rv, R33 );
       //std::cout << "size tv " << tv.size() << std::endl;
       //std::cout << "size rv " << rv.size() << std::endl;
@@ -818,12 +911,17 @@ namespace rqt_image_view {
       //}
       
       for ( int i = 0; i < 3; ++i ) {
-        m.at<double>( i, 3 ) = tv.at<double>( 0, i );
+        T_CD.at<double>( i, 3 ) = tv.at<double>( 0, i );
       }
       
-      std::cout << m << std::endl;
+      std::cout << T_CD << std::endl;
       std::cout << "tv " << tv << std::endl;
       std::cout << "rv " << rv << std::endl;
+      
+      if ( measurement_laser_ ) {
+        measurement_laser_->setTfWorldSensor( T_CD );
+        updateLaser2Image();
+      }
 
 #endif
     }
