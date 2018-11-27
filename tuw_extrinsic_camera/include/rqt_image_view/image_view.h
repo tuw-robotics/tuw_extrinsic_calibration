@@ -126,6 +126,8 @@ namespace rqt_image_view {
     virtual void onRotateRight();
     
     virtual void onLaserScanBoxToggle( bool val );
+    
+    virtual void onFreezeLaserBoxToggle( bool val );
   
   protected:
     
@@ -189,6 +191,7 @@ namespace rqt_image_view {
     ros::Publisher pub_mouse_left_;
     ros::Publisher pub_fiducial_detection_;
     bool use_laser_scan_range_;
+    bool freeze_laser_scan_;
     
     bool pub_topic_custom_;
     

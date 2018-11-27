@@ -87,8 +87,9 @@ namespace rqt_image_view {
     }
     pub_topic_custom_ = false;
     
-    ui_.image_frame->setOuterLayout( ui_.image_layout );
-    ui_.laser_frame->setOuterLayout( ui_.image_layout );
+    //ui_.image_frame->setOuterLayout( ui_.image_layout );
+    //ui_.laser_frame->setOuterLayout( ui_.image_layout );
+    ui_.laser_frame->setImage( QImage());
     
     QRegExp rx(
         "([a-zA-Z/][a-zA-Z0-9_/]*)?" ); //see http://www.ros.org/wiki/ROS/Concepts#Names.Valid_Names (but also accept an empty field)
@@ -103,6 +104,10 @@ namespace rqt_image_view {
     connect( ui_.rotate_left_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateLeft()) );
     connect( ui_.rotate_right_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateRight()) );
     connect( ui_.laser_scan_checkbox, SIGNAL( toggled( bool )), this, SLOT( onLaserScanBoxToggle( bool )) );
+    connect( ui_.freeze_laser_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeLaserBoxToggle( bool )) );
+    
+    ui_.laser_scan_checkbox->toggled(false);
+    ui_.freeze_laser_checkbox->toggled(false);
     
     ui_.sliderLeftLaser->setMinimum( 0 );
     ui_.sliderLeftLaser->setMaximum( 100 );
@@ -138,6 +143,10 @@ namespace rqt_image_view {
   void ImageView::shutdownPlugin() {
     subscriber_.shutdown();
     pub_mouse_left_.shutdown();
+  }
+  
+  void ImageView::onFreezeLaserBoxToggle( bool val ) {
+    freeze_laser_scan_ = val;
   }
   
   void ImageView::onLaserScanBoxToggle( bool val ) {
@@ -177,6 +186,7 @@ namespace rqt_image_view {
     instance_settings.setValue( "num_gridlines", ui_.num_gridlines_spin_box->value());
     instance_settings.setValue( "smooth_image", ui_.smooth_image_check_box->isChecked());
     instance_settings.setValue( "rotate", rotate_state_ );
+    //instance_settings.setValue( "laser_box", ui_.laser_scan_checkbox->isChecked());
   }
   
   void ImageView::restoreSettings( const qt_gui_cpp::Settings &plugin_settings,
@@ -421,7 +431,7 @@ namespace rqt_image_view {
   }
   
   void ImageView::onMouseLeft( int x, int y ) {
-    if ( ui_.publish_click_location_check_box->isChecked() && !ui_.image_frame->getImage().isNull()) {
+    if ( !ui_.image_frame->getImage().isNull()) {
       geometry_msgs::Point clickCanvasLocation;
       // Publish click location in pixel coordinates
       clickCanvasLocation.x = round(
@@ -433,6 +443,7 @@ namespace rqt_image_view {
       geometry_msgs::Point clickLocation = clickCanvasLocation;
       
       clickedPoints_.push_back( cv::Point2d( clickCanvasLocation.x, clickCanvasLocation.y ));
+      std::cout << "clicked x, y: " << clickedPoints_.back().x << ", " << clickedPoints_.back().y << std::endl;
       
       cv::circle( conversion_mat_, clickedPoints_.back(), 2, cv::Scalar( 0, 255, 0 ), 2 );
       QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
@@ -454,8 +465,6 @@ namespace rqt_image_view {
       //  default:
       //    break;
       //}
-      
-      
       
       pub_mouse_left_.publish( clickLocation );
     }
@@ -581,11 +590,17 @@ namespace rqt_image_view {
         figure_local_->line( tuw::Point2D( 0, 0 ), pright, figure_local_->blue );
       }
       
+      bool is_rightmost = false;
       for ( auto it_l = measurement_laser_->begin();
             it_l != measurement_laser_->end();
             ++it_l ) {
         if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ ) {
-          figure_local_->circle( it_l->end_point, 2, figure_local_->green );
+          if ( !is_rightmost ) {
+            figure_local_->circle( it_l->end_point, 2, figure_local_->red );
+            is_rightmost = true;
+          } else {
+            figure_local_->circle( it_l->end_point, 2, figure_local_->green );
+          }
         } else {
           figure_local_->circle( it_l->end_point, 2, figure_local_->magenta );
           it_l->set_valid( false );
@@ -755,10 +770,10 @@ namespace rqt_image_view {
         cv::circle( conversion_mat_, clickedPoints_[i], 2, cv::Scalar( 0, 255, 0 ), 2 );
         if ( measurement_image_ && measurement_image_->getCameraModel()) {
           cv::Point3d pt3d = measurement_image_->getCameraModel()->projectPixelTo3dRay( clickedPoints_[i] );
-          cv::putText( conversion_mat_,
-                       ("(" + std::to_string( pt3d.x ) + ", " + std::to_string( pt3d.y ) + std::to_string( pt3d.z )
-                        + ")"), clickedPoints_[i] + cv::Point2d( 1, 0 ), CV_FONT_HERSHEY_COMPLEX, 1,
-                       cv::Scalar( 0, 255, 0 ));
+          //cv::putText( conversion_mat_,
+          //             ("(" + std::to_string( pt3d.x ) + ", " + std::to_string( pt3d.y ) + std::to_string( pt3d.z )
+          //              + ")"), clickedPoints_[i] + cv::Point2d( 1, 0 ), CV_FONT_HERSHEY_COMPLEX, 1,
+          //             cv::Scalar( 0, 255, 0 ));
         }
       }
       //std::cout << "end" << std::endl;
@@ -789,7 +804,7 @@ namespace rqt_image_view {
   }
   
   void ImageView::publishFiducials() {
-    if ( clickedPoints_.size() == 4 ) {
+    if ( clickedPoints_.size() == 4 && use_laser_scan_range_ ) {
       marker_msgs::FiducialDetection fd;
       
       if ( measurement_image_->getCameraModel()) {
@@ -860,26 +875,41 @@ namespace rqt_image_view {
       pub_fiducial_detection_.publish( fd );
     //}
 #else
-      size_t point_count = 0;
       std::vector<cv::Point3f> object_points;
+      std::vector<tuw::Contour::Beam> laser_beams( measurement_laser_->size());
+      std::cout << "getting beams" << std::endl;
+      std::cout << "laser beams " << measurement_laser_->size() << std::endl;
+      auto end_it = std::copy_if( measurement_laser_->begin(), measurement_laser_->end(), laser_beams.begin(),
+                                  []( const tuw::Contour::Beam &b ) {
+                                    if ( b.is_valid()) {
+                                      return true;
+                                    }
+                                    return false;
+                                  } );
+      laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
+      std::cout << "got beams" << std::endl;
+      tuw::Contour::Beam leftMost = laser_beams.back();
+      tuw::Contour::Beam rightMost = laser_beams.front();
+      
+      size_t point_count = 0;
       for ( const cv::Point2d &pt : clickedPoints_ ) {
         
         cv::Point3d object_point;
         if ( point_count == 0 ) {
-          object_point.x = 0;
-          object_point.y = 0;
+          object_point.x = leftMost.end_point.x();
+          object_point.y = leftMost.end_point.y();
           object_point.z = 0;
         } else if ( point_count == 1 ) {
-          object_point.x = 0;
-          object_point.y = 0;
+          object_point.x = leftMost.end_point.x();
+          object_point.y = leftMost.end_point.y();
           object_point.z = 2.0f;
         } else if ( point_count == 2 ) {
-          object_point.x = 0;
-          object_point.y = 0.9f;
+          object_point.x = rightMost.end_point.x();
+          object_point.y = rightMost.end_point.y();
           object_point.z = 2.0f;
         } else if ( point_count == 3 ) {
-          object_point.x = 0;
-          object_point.y = 0.9f;
+          object_point.x = rightMost.end_point.x();
+          object_point.y = rightMost.end_point.y();
           object_point.z = 0.0f;
         }
         
@@ -899,8 +929,8 @@ namespace rqt_image_view {
                     Dmat, rv, tv );
       
       //This is the tf from the door to the camera
-      cv::Mat T_CD = cv::Mat::eye( 4, 4, CV_64FC1);
-      cv::Mat R33 = cv::Mat( T_CD, cv::Rect( 0, 0, 3, 3 ));
+      cv::Mat T_LC = cv::Mat::eye( 4, 4, CV_64FC1);
+      cv::Mat R33 = cv::Mat( T_LC, cv::Rect( 0, 0, 3, 3 ));
       cv::Rodrigues( rv, R33 );
       //std::cout << "size tv " << tv.size() << std::endl;
       //std::cout << "size rv " << rv.size() << std::endl;
@@ -911,15 +941,15 @@ namespace rqt_image_view {
       //}
       
       for ( int i = 0; i < 3; ++i ) {
-        T_CD.at<double>( i, 3 ) = tv.at<double>( 0, i );
+        T_LC.at<double>( i, 3 ) = tv.at<double>( 0, i );
       }
       
-      std::cout << T_CD << std::endl;
+      std::cout << T_LC << std::endl;
       std::cout << "tv " << tv << std::endl;
       std::cout << "rv " << rv << std::endl;
       
       if ( measurement_laser_ ) {
-        measurement_laser_->setTfWorldSensor( T_CD );
+        measurement_laser_->setTfWorldSensor( T_LC );
         updateLaser2Image();
       }
 

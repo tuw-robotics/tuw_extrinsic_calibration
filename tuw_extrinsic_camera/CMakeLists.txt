@@ -25,11 +25,13 @@ endif ()
 set(rqt_image_view_SRCS
         src/rqt_image_view/image_view.cpp
         src/rqt_image_view/ratio_layouted_frame.cpp
+        src/rqt_image_view/range_slider.cpp
         )
 
 set(rqt_image_view_HDRS
         include/rqt_image_view/image_view.h
         include/rqt_image_view/ratio_layouted_frame.h
+        include/rqt_image_view/range_slider.h
         )
 
 set(rqt_image_view_UIS
