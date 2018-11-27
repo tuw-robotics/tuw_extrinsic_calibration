@@ -105,9 +105,12 @@ namespace rqt_image_view {
     connect( ui_.rotate_right_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateRight()) );
     connect( ui_.laser_scan_checkbox, SIGNAL( toggled( bool )), this, SLOT( onLaserScanBoxToggle( bool )) );
     connect( ui_.freeze_laser_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeLaserBoxToggle( bool )) );
+    connect( ui_.freeze_image_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeImageBoxToggle( bool )) );
+    connect( ui_.publisher_button, SIGNAL( pressed()), this, SLOT( onPublisherButton()) );
     
-    ui_.laser_scan_checkbox->toggled(false);
-    ui_.freeze_laser_checkbox->toggled(false);
+    ui_.laser_scan_checkbox->toggled( false );
+    ui_.freeze_laser_checkbox->toggled( false );
+    ui_.freeze_image_checkbox->toggled( false );
     
     ui_.sliderLeftLaser->setMinimum( 0 );
     ui_.sliderLeftLaser->setMaximum( 100 );
@@ -137,12 +140,50 @@ namespace rqt_image_view {
     clickedPoints_ = boost::circular_buffer<cv::Point2d>( 4 );
     
     figure_local_.reset( new tuw::Figure( "laser2map" ));
-    figure_local_->init( 500, 500, -5, 5, -5, 5, M_PI / 2.0, 1, 1 );
+    figure_local_->init( 500, 500, -1, 5, -5, 5, M_PI / 2.0, 1, 1 );
+  }
+  
+  void ImageView::drawImages() {
+    std::lock_guard<std::mutex> lock( mutex_image_ );
+    
+    if ( clickedPoints_.size()) {
+      //std::cout << "clickedPoints" << std::endl;
+      for ( int i = 0; i < clickedPoints_.size(); ++i ) {
+        cv::circle( conversion_mat_, clickedPoints_[i], 2, cv::Scalar( 0, 255, 0 ), 2 );
+        if ( measurement_image_ && measurement_image_->getCameraModel()) {
+          cv::Point3d pt3d = measurement_image_->getCameraModel()->projectPixelTo3dRay( clickedPoints_[i] );
+          //cv::putText( conversion_mat_,
+          //             ("(" + std::to_string( pt3d.x ) + ", " + std::to_string( pt3d.y ) + std::to_string( pt3d.z )
+          //              + ")"), clickedPoints_[i] + cv::Point2d( 1, 0 ), CV_FONT_HERSHEY_COMPLEX, 1,
+          //             cv::Scalar( 0, 255, 0 ));
+        }
+      }
+      //std::cout << "end" << std::endl;
+    }
+    
+    if ( laser2image_points_.size()) {
+      //std::cout << "laser2image " << std::endl;
+      for ( size_t i = 0; i < laser2image_points_.size(); ++i ) {
+        cv::circle( conversion_mat_, laser2image_points_[i], 2, cv::Scalar( 255, 0, 0 ), 2 );
+      }
+      //std::cout << "laser2image circle" << std::endl;
+    }
+    
+    // image must be copied since it uses the conversion_mat_ for storage which is asynchronously overwritten in the next callback invocation
+    if ( conversion_mat_.rows > 0 && conversion_mat_.cols > 0 ) {
+      QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
+                    QImage::Format_RGB888 );
+      ui_.image_frame->setImage( image );
+    }
   }
   
   void ImageView::shutdownPlugin() {
     subscriber_.shutdown();
     pub_mouse_left_.shutdown();
+  }
+  
+  void ImageView::onFreezeImageBoxToggle( bool val ) {
+    freeze_image_ = val;
   }
   
   void ImageView::onFreezeLaserBoxToggle( bool val ) {
@@ -159,7 +200,10 @@ namespace rqt_image_view {
       double angle_max = measurement_laser_->getLaser().angle_max;
       rightSplitAngle_ =
           ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
-      std::cout << "left angle " << leftSplitAngle_ << std::endl;
+      std::cout << "laser2map " << std::endl;
+      updateLaser2Map();
+      std::cout << "draw images " << std::endl;
+      drawImages();
     }
   }
   
@@ -169,7 +213,10 @@ namespace rqt_image_view {
       double angle_max = measurement_laser_->getLaser().angle_max;
       leftSplitAngle_ =
           ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
-      std::cout << "right angle " << rightSplitAngle_ << std::endl;
+      std::cout << "laser2map " << std::endl;
+      updateLaser2Map();
+      std::cout << "drawimages " << std::endl;
+      drawImages();
     }
   }
   
@@ -370,6 +417,7 @@ namespace rqt_image_view {
       sub_laser_ = getNodeHandle().subscribe( std::string( "/r0/laser0/scan" ), 1, &ImageView::callbackLaser, this );
     }
     
+    
     onMousePublish( ui_.publish_click_location_check_box->isChecked());
   }
   
@@ -443,28 +491,12 @@ namespace rqt_image_view {
       geometry_msgs::Point clickLocation = clickCanvasLocation;
       
       clickedPoints_.push_back( cv::Point2d( clickCanvasLocation.x, clickCanvasLocation.y ));
-      std::cout << "clicked x, y: " << clickedPoints_.back().x << ", " << clickedPoints_.back().y << std::endl;
+      //std::cout << "clicked x, y: " << clickedPoints_.back().x << ", " << clickedPoints_.back().y << std::endl;
       
       cv::circle( conversion_mat_, clickedPoints_.back(), 2, cv::Scalar( 0, 255, 0 ), 2 );
       QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
                     QImage::Format_RGB888 );
       ui_.image_frame->setImage( image );
-      //switch (rotate_state_) {
-      //  case ROTATE_90:
-      //    clickLocation.x = clickCanvasLocation.y;
-      //    clickLocation.y = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
-      //    break;
-      //  case ROTATE_180:
-      //    clickLocation.x = ui_.image_frame->getImage().width() - clickCanvasLocation.x;
-      //    clickLocation.y = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
-      //    break;
-      //  case ROTATE_270:
-      //    clickLocation.x = ui_.image_frame->getImage().height() - clickCanvasLocation.y;
-      //    clickLocation.y = clickCanvasLocation.x;
-      //    break;
-      //  default:
-      //    break;
-      //}
       
       pub_mouse_left_.publish( clickLocation );
     }
@@ -575,7 +607,9 @@ namespace rqt_image_view {
   }
   
   void ImageView::updateLaser2Map() {
-    if ( measurement_laser_ ) {
+    
+    if ( measurement_laser_ && figure_local_->initialized()) {
+      
       figure_local_->clear();
       
       {
@@ -591,30 +625,38 @@ namespace rqt_image_view {
       }
       
       bool is_rightmost = false;
-      for ( auto it_l = measurement_laser_->begin();
-            it_l != measurement_laser_->end();
-            ++it_l ) {
-        if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ ) {
-          if ( !is_rightmost ) {
-            figure_local_->circle( it_l->end_point, 2, figure_local_->red );
-            is_rightmost = true;
+      
+      {
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        for ( auto it_l = measurement_laser_->begin();
+              it_l != measurement_laser_->end();
+              ++it_l ) {
+          if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ ) {
+            if ( !is_rightmost ) {
+              figure_local_->circle( it_l->end_point, 2, figure_local_->red );
+              is_rightmost = true;
+            } else {
+              figure_local_->circle( it_l->end_point, 2, figure_local_->green );
+            }
+            it_l->set_valid( true );
           } else {
-            figure_local_->circle( it_l->end_point, 2, figure_local_->green );
+            figure_local_->circle( it_l->end_point, 2, figure_local_->magenta );
+            it_l->set_valid( false );
           }
-        } else {
-          figure_local_->circle( it_l->end_point, 2, figure_local_->magenta );
-          it_l->set_valid( false );
         }
       }
       
-      cv::Mat view = figure_local_->view();
-      //cv::imshow( "view", view );
-      QImage image( view.data, view.cols, view.rows, view.step[0],
-                    QImage::Format_RGB888 );
-      ui_.laser_frame->setImage( image );
-      ui_.laser_frame->setInnerFrameFixedSize( image.size());
-      ui_.laser_frame->setEnabled( true );
-      ui_.laser_frame->setVisible( true );
+      {
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        cv::Mat view = figure_local_->view();
+        //cv::imshow( "view", view );
+        QImage image( view.data, view.cols, view.rows, view.step[0],
+                      QImage::Format_RGB888 );
+        ui_.laser_frame->setImage( image );
+        ui_.laser_frame->setInnerFrameFixedSize( image.size());
+        ui_.laser_frame->setEnabled( true );
+        ui_.laser_frame->setVisible( true );
+      }
       //std::cout << std::to_string( ui_.laser_frame->size().width()) << ", "
       //          << std::to_string( ui_.laser_frame->size().height()) << std::endl;
     }
@@ -628,18 +670,23 @@ namespace rqt_image_view {
       const auto T_WL = measurement_laser_->getTfWorldSensor();
       const auto T_CL = T_WC.inverse() * T_WL;
       
-      std::size_t i = 0;
+      std::lock_guard<std::mutex> lock( mutex_laser_ );
       laser2image_points_.resize( measurement_laser_->size());
+      std::size_t i = 0;
       
-      for ( auto beam_it = measurement_laser_->begin();
-            beam_it != measurement_laser_->end();
-            ++beam_it, ++i ) {
-        Eigen::Vector4d laser_in_image = T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
-        laser_in_image = laser_in_image / laser_in_image[3];
+      {
         
-        //const auto pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
-        const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
-        laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
+        for ( auto beam_it = measurement_laser_->begin();
+              beam_it != measurement_laser_->end();
+              ++beam_it, ++i ) {
+          Eigen::Vector4d laser_in_image =
+              T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
+          laser_in_image = laser_in_image / laser_in_image[3];
+          
+          //const auto pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
+          const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
+          laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
+        }
       }
       
       return true;
@@ -651,18 +698,21 @@ namespace rqt_image_view {
   void ImageView::callbackLaser( const sensor_msgs::LaserScan &_laser ) {
     //@ToDo: here
     //std::cout << "laser cb" << std::endl;
-    laser2image_points_.clear();
-    
-    tf::StampedTransform tf;
-    tf.setIdentity();
-    //if ( !getStaticTF( "/r0/base_link", _laser.header.frame_id, tf, false )) {
-    //  //std::cout << "no laser gotten, return" << std::endl;
-    //  return;
-    //}
-    
-    measurement_laser_.reset( new tuw::LaserMeasurement( _laser, tf ));
-    measurement_laser_->initFromScan();
-    
+    if ( !freeze_laser_scan_ ) {
+      laser2image_points_.clear();
+      
+      tf::StampedTransform tf;
+      tf.setIdentity();
+      //if ( !getStaticTF( "/r0/base_link", _laser.header.frame_id, tf, false )) {
+      //  //std::cout << "no laser gotten, return" << std::endl;
+      //  return;
+      //}
+      
+      std::lock_guard<std::mutex> lock( mutex_laser_ );
+      measurement_laser_.reset( new tuw::LaserMeasurement( _laser, tf ));
+      measurement_laser_->initFromScan();
+    }
+    //Auto check if measurement is there in method
     updateLaser2Map();
   }
   
@@ -679,131 +729,89 @@ namespace rqt_image_view {
   
   void ImageView::callbackImage( const sensor_msgs::Image::ConstPtr &msg ) {
     //std::cout << "cb image" << std::endl;
-    try {
-      // First let cv_bridge do its magic
-      cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg, sensor_msgs::image_encodings::RGB8 );
-      conversion_mat_ = cv_ptr->image;
+    
+    {
       
-      tf::StampedTransform tf;
-      measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
-      if ( camera_model_ ) {
-        measurement_image_->setCameraModel( camera_model_ );
-      }
-      //if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
-      //  measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
-      //}
+      std::lock_guard<std::mutex> lock( mutex_image_ );
       
-      if ( num_gridlines_ > 0 )
-        overlayGrid();
-    }
-    catch (cv_bridge::Exception &e) {
-      try {
-        // If we're here, there is no conversion that makes sense, but let's try to imagine a few first
-        cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg );
-        if ( msg->encoding == "CV_8UC3" ) {
-          // assuming it is rgb
+      if ( !freeze_image_ ) {
+        
+        try {
+          // First let cv_bridge do its magic
+          cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg, sensor_msgs::image_encodings::RGB8 );
           conversion_mat_ = cv_ptr->image;
-        } else if ( msg->encoding == "8UC1" ) {
-          // convert gray to rgb
-          cv::cvtColor( cv_ptr->image, conversion_mat_, CV_GRAY2RGB );
-        } else if ( msg->encoding == "16UC1" || msg->encoding == "32FC1" ) {
-          // scale / quantify
-          double min = 0;
-          double max = ui_.max_range_double_spin_box->value();
-          if ( msg->encoding == "16UC1" ) max *= 1000;
-          if ( ui_.dynamic_range_check_box->isChecked()) {
-            // dynamically adjust range based on min/max in image
-            cv::minMaxLoc( cv_ptr->image, &min, &max );
-            if ( min == max ) {
-              // completely homogeneous images are displayed in gray
-              min = 0;
-              max = 2;
+          
+          tf::StampedTransform tf;
+          measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+          if ( camera_model_ ) {
+            measurement_image_->setCameraModel( camera_model_ );
+          }
+          //if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
+          //  measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+          //}
+          
+          if ( num_gridlines_ > 0 )
+            overlayGrid();
+        }
+        catch (cv_bridge::Exception &e) {
+          try {
+            // If we're here, there is no conversion that makes sense, but let's try to imagine a few first
+            cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg );
+            if ( msg->encoding == "CV_8UC3" ) {
+              // assuming it is rgb
+              conversion_mat_ = cv_ptr->image;
+            } else if ( msg->encoding == "8UC1" ) {
+              // convert gray to rgb
+              cv::cvtColor( cv_ptr->image, conversion_mat_, CV_GRAY2RGB );
+            } else if ( msg->encoding == "16UC1" || msg->encoding == "32FC1" ) {
+              // scale / quantify
+              double min = 0;
+              double max = ui_.max_range_double_spin_box->value();
+              if ( msg->encoding == "16UC1" ) max *= 1000;
+              if ( ui_.dynamic_range_check_box->isChecked()) {
+                // dynamically adjust range based on min/max in image
+                cv::minMaxLoc( cv_ptr->image, &min, &max );
+                if ( min == max ) {
+                  // completely homogeneous images are displayed in gray
+                  min = 0;
+                  max = 2;
+                }
+              }
+              cv::Mat img_scaled_8u;
+              cv::Mat( cv_ptr->image - min ).convertTo( img_scaled_8u, CV_8UC1, 255. / (max - min));
+              cv::cvtColor( img_scaled_8u, conversion_mat_, CV_GRAY2RGB );
+            } else {
+              qWarning( "ImageView.callback_image() could not convert image from '%s' to 'rgb8' (%s)",
+                        msg->encoding.c_str(),
+                        e.what());
+              ui_.image_frame->setImage( QImage());
+              return;
             }
           }
-          cv::Mat img_scaled_8u;
-          cv::Mat( cv_ptr->image - min ).convertTo( img_scaled_8u, CV_8UC1, 255. / (max - min));
-          cv::cvtColor( img_scaled_8u, conversion_mat_, CV_GRAY2RGB );
-        } else {
-          qWarning( "ImageView.callback_image() could not convert image from '%s' to 'rgb8' (%s)",
-                    msg->encoding.c_str(),
-                    e.what());
-          ui_.image_frame->setImage( QImage());
-          return;
+          catch (cv_bridge::Exception &e) {
+            qWarning(
+                "ImageView.callback_image() while trying to convert image from '%s' to 'rgb8' an exception was thrown (%s)",
+                msg->encoding.c_str(), e.what());
+            ui_.image_frame->setImage( QImage());
+            return;
+          }
         }
       }
-      catch (cv_bridge::Exception &e) {
-        qWarning(
-            "ImageView.callback_image() while trying to convert image from '%s' to 'rgb8' an exception was thrown (%s)",
-            msg->encoding.c_str(), e.what());
-        ui_.image_frame->setImage( QImage());
-        return;
+      
+      if ( !ui_.zoom_1_push_button->isEnabled()) {
+        ui_.zoom_1_push_button->setEnabled( true );
       }
+      
+      // Need to update the zoom 1 every new image in case the image aspect ratio changed,
+      // though could check and see if the aspect ratio changed or not.
+      onZoom1( ui_.zoom_1_push_button->isChecked());
+      
     }
     
-    // Handle rotation
-    switch ( rotate_state_ ) {
-      case ROTATE_90: {
-        cv::Mat tmp;
-        cv::transpose( conversion_mat_, tmp );
-        cv::flip( tmp, conversion_mat_, 1 );
-        break;
-      }
-      case ROTATE_180: {
-        cv::Mat tmp;
-        cv::flip( conversion_mat_, tmp, -1 );
-        conversion_mat_ = tmp;
-        break;
-      }
-      case ROTATE_270: {
-        cv::Mat tmp;
-        cv::transpose( conversion_mat_, tmp );
-        cv::flip( tmp, conversion_mat_, 0 );
-        break;
-      }
-      default:
-        break;
-    }
-    
-    if ( clickedPoints_.size()) {
-      //std::cout << "clickedPoints" << std::endl;
-      for ( int i = 0; i < clickedPoints_.size(); ++i ) {
-        cv::circle( conversion_mat_, clickedPoints_[i], 2, cv::Scalar( 0, 255, 0 ), 2 );
-        if ( measurement_image_ && measurement_image_->getCameraModel()) {
-          cv::Point3d pt3d = measurement_image_->getCameraModel()->projectPixelTo3dRay( clickedPoints_[i] );
-          //cv::putText( conversion_mat_,
-          //             ("(" + std::to_string( pt3d.x ) + ", " + std::to_string( pt3d.y ) + std::to_string( pt3d.z )
-          //              + ")"), clickedPoints_[i] + cv::Point2d( 1, 0 ), CV_FONT_HERSHEY_COMPLEX, 1,
-          //             cv::Scalar( 0, 255, 0 ));
-        }
-      }
-      //std::cout << "end" << std::endl;
-    }
-    
-    if ( laser2image_points_.size()) {
-      //std::cout << "laser2image " << std::endl;
-      for ( size_t i = 0; i < laser2image_points_.size(); ++i ) {
-        cv::circle( conversion_mat_, laser2image_points_[i], 2, cv::Scalar( 255, 0, 0 ), 2 );
-      }
-      //std::cout << "laser2image circle" << std::endl;
-    }
-    
-    // image must be copied since it uses the conversion_mat_ for storage which is asynchronously overwritten in the next callback invocation
-    QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
-                  QImage::Format_RGB888 );
-    ui_.image_frame->setImage( image );
-    
-    if ( !ui_.zoom_1_push_button->isEnabled()) {
-      ui_.zoom_1_push_button->setEnabled( true );
-    }
-    // Need to update the zoom 1 every new image in case the image aspect ratio changed,
-    // though could check and see if the aspect ratio changed or not.
-    onZoom1( ui_.zoom_1_push_button->isChecked());
-    
-    //std::cout << "end image cb" << std::endl;
-    publishFiducials();
+    drawImages();
   }
   
-  void ImageView::publishFiducials() {
+  void ImageView::onPublisherButton() {
     if ( clickedPoints_.size() == 4 && use_laser_scan_range_ ) {
       marker_msgs::FiducialDetection fd;
       

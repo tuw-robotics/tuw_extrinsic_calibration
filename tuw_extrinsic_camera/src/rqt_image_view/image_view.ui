@@ -249,6 +249,20 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="freeze_image_checkbox">
+          <property name="text">
+           <string>Freeze image</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="publisher_button">
+          <property name="text">
+           <string>Publish</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <spacer name="spacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -280,7 +294,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>315</height>
+        <height>312</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -338,7 +352,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>314</height>
+        <height>312</height>
        </rect>
       </property>
       <property name="sizePolicy">

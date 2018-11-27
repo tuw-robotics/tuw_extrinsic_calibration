@@ -61,6 +61,7 @@
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tuw_geometry/figure.h>
+#include <mutex>
 
 namespace rqt_image_view {
   
@@ -128,10 +129,14 @@ namespace rqt_image_view {
     virtual void onLaserScanBoxToggle( bool val );
     
     virtual void onFreezeLaserBoxToggle( bool val );
+    
+    virtual void onFreezeImageBoxToggle( bool val );
+    
+    virtual void onPublisherButton();
   
   protected:
     
-    virtual void publishFiducials();
+    virtual void drawImages();
     
     virtual void callbackImage( const sensor_msgs::Image::ConstPtr &msg );
     
@@ -192,6 +197,7 @@ namespace rqt_image_view {
     ros::Publisher pub_fiducial_detection_;
     bool use_laser_scan_range_;
     bool freeze_laser_scan_;
+    bool freeze_image_;
     
     bool pub_topic_custom_;
     
@@ -202,6 +208,9 @@ namespace rqt_image_view {
     RotateState rotate_state_;
     
     tf::TransformListener listenerTF_;
+    
+    std::mutex mutex_laser_;
+    std::mutex mutex_image_;
   };
   
 }
