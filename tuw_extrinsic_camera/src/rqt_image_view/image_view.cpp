@@ -45,11 +45,12 @@
 #include <tf/transform_datatypes.h>
 #include <marker_msgs/FiducialDetection.h>
 #include <opencv2/highgui.hpp>
+#include <iterator>
 
 namespace rqt_image_view {
   
   ImageView::ImageView()
-      : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ), rotate_state_( ROTATE_0 ) {
+      : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ) {
     setObjectName( "ImageView" );
   }
   
@@ -69,15 +70,8 @@ namespace rqt_image_view {
     ui_.refresh_topics_push_button->setIcon( QIcon::fromTheme( "view-refresh" ));
     connect( ui_.refresh_topics_push_button, SIGNAL( pressed()), this, SLOT( updateTopicList()) );
     
-    ui_.zoom_1_push_button->setIcon( QIcon::fromTheme( "zoom-original" ));
-    connect( ui_.zoom_1_push_button, SIGNAL( toggled( bool )), this, SLOT( onZoom1( bool )) );
-    
-    connect( ui_.dynamic_range_check_box, SIGNAL( toggled( bool )), this, SLOT( onDynamicRange( bool )) );
-    
-    ui_.save_as_image_push_button->setIcon( QIcon::fromTheme( "document-save-as" ));
-    connect( ui_.save_as_image_push_button, SIGNAL( pressed()), this, SLOT( saveImage()) );
-    
-    connect( ui_.num_gridlines_spin_box, SIGNAL( valueChanged( int )), this, SLOT( updateNumGridlines()) );
+    //ui_.save_as_image_push_button->setIcon( QIcon::fromTheme( "document-save-as" ));
+    //connect( ui_.save_as_image_push_button, SIGNAL( pressed()), this, SLOT( saveImage()) );
     
     // set topic name if passed in as argument
     const QStringList &argv = context.argv();
@@ -87,99 +81,85 @@ namespace rqt_image_view {
     }
     pub_topic_custom_ = false;
     
-    //ui_.image_frame->setOuterLayout( ui_.image_layout );
-    //ui_.laser_frame->setOuterLayout( ui_.image_layout );
+    ui_.image_frame->setImage( QImage());
     ui_.laser_frame->setImage( QImage());
     
     QRegExp rx(
         "([a-zA-Z/][a-zA-Z0-9_/]*)?" ); //see http://www.ros.org/wiki/ROS/Concepts#Names.Valid_Names (but also accept an empty field)
     ui_.publish_click_location_topic_line_edit->setValidator( new QRegExpValidator( rx, this ));
-    connect( ui_.publish_click_location_check_box, SIGNAL( toggled( bool )), this, SLOT( onMousePublish( bool )) );
     connect( ui_.image_frame, SIGNAL( mouseLeft( int, int )), this, SLOT( onMouseLeft( int, int )) );
     connect( ui_.publish_click_location_topic_line_edit, SIGNAL( editingFinished()), this, SLOT( onPubTopicChanged()) );
     
-    connect( ui_.smooth_image_check_box, SIGNAL( toggled( bool )), ui_.image_frame,
-             SLOT( onSmoothImageChanged( bool )) );
-    
-    connect( ui_.rotate_left_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateLeft()) );
-    connect( ui_.rotate_right_push_button, SIGNAL( clicked( bool )), this, SLOT( onRotateRight()) );
     connect( ui_.laser_scan_checkbox, SIGNAL( toggled( bool )), this, SLOT( onLaserScanBoxToggle( bool )) );
     connect( ui_.freeze_laser_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeLaserBoxToggle( bool )) );
     connect( ui_.freeze_image_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeImageBoxToggle( bool )) );
     connect( ui_.publisher_button, SIGNAL( pressed()), this, SLOT( onPublisherButton()) );
+    connect( ui_.refine_button, SIGNAL( pressed()), this, SLOT( onRefinePressed()) );
     
     ui_.laser_scan_checkbox->toggled( false );
     ui_.freeze_laser_checkbox->toggled( false );
     ui_.freeze_image_checkbox->toggled( false );
     
     ui_.sliderLeftLaser->setMinimum( 0 );
-    ui_.sliderLeftLaser->setMaximum( 100 );
-    ui_.sliderLeftLaser->setValue( 0 );
     ui_.sliderRightLaser->setMinimum( 0 );
-    ui_.sliderRightLaser->setMaximum( 100 );
-    ui_.sliderRightLaser->setValue( 100 );
+    
+    ui_.sliderLeftLaser->setMaximum( 360 );
+    ui_.sliderRightLaser->setMaximum( 360 );
+    
+    ui_.sliderLeftLaser->setValue( 0 );
+    ui_.sliderRightLaser->setValue( 360 );
     
     connect( ui_.sliderLeftLaser, SIGNAL( valueChanged( int )), this, SLOT( onLeftSliderValChanged( int )) );
     connect( ui_.sliderRightLaser, SIGNAL( valueChanged( int )), this, SLOT( onRightSliderValChanged( int )) );
+    connect( ui_.sliderLeftLaserD, SIGNAL( valueChanged( int )), this, SLOT( onLeftDistanceSliderValChanged( int )) );
+    connect( ui_.sliderRightLaserD, SIGNAL( valueChanged( int )), this, SLOT( onRightDistanceSliderValChanged( int )) );
+    
+    ui_.sliderRightLaserD->setMinimum( 0 );
+    ui_.sliderRightLaserD->setMinimum( 0 );
+    
+    ui_.sliderLeftLaserD->setMaximum( 100 );
+    ui_.sliderRightLaserD->setMaximum( 100 );
+    
+    ui_.sliderLeftLaserD->setValue( 100 );
+    ui_.sliderRightLaserD->setValue( 100 );
     
     leftSplitAngle_ = -M_PI / 2.0;
     rightSplitAngle_ = M_PI / 2.0;
     
-    //connect( ui_.laser_frame, ,this, SLOT(onLaserTopichChanged() ));
-    
-    // Make sure we have enough space for "XXX °"
-    ui_.rotate_label->setMinimumWidth(
-        ui_.rotate_label->fontMetrics().width( "XXX°" )
-    );
-    
-    hide_toolbar_action_ = new QAction( tr( "Hide toolbar" ), this );
-    hide_toolbar_action_->setCheckable( true );
-    ui_.image_frame->addAction( hide_toolbar_action_ );
-    connect( hide_toolbar_action_, SIGNAL( toggled( bool )), this, SLOT( onHideToolbarChanged( bool )) );
-    
     clickedPoints_ = boost::circular_buffer<cv::Point2d>( 4 );
     
     figure_local_.reset( new tuw::Figure( "laser2map" ));
-    figure_local_->init( 500, 500, -1, 5, -5, 5, M_PI / 2.0, 1, 1 );
+    figure_local_->init( 500, 500, -0.2, 10, -5, 5, M_PI / 2.0, 0.25, 0.7 );
   }
   
   void ImageView::drawImages() {
     std::lock_guard<std::mutex> lock( mutex_image_ );
     
     if ( clickedPoints_.size()) {
-      //std::cout << "clickedPoints" << std::endl;
       for ( int i = 0; i < clickedPoints_.size(); ++i ) {
         cv::circle( conversion_mat_, clickedPoints_[i], 2, cv::Scalar( 0, 255, 0 ), 2 );
         if ( measurement_image_ && measurement_image_->getCameraModel()) {
           cv::Point3d pt3d = measurement_image_->getCameraModel()->projectPixelTo3dRay( clickedPoints_[i] );
-          //cv::putText( conversion_mat_,
-          //             ("(" + std::to_string( pt3d.x ) + ", " + std::to_string( pt3d.y ) + std::to_string( pt3d.z )
-          //              + ")"), clickedPoints_[i] + cv::Point2d( 1, 0 ), CV_FONT_HERSHEY_COMPLEX, 1,
-          //             cv::Scalar( 0, 255, 0 ));
         }
       }
-      //std::cout << "end" << std::endl;
     }
     
     if ( laser2image_points_.size()) {
-      //std::cout << "laser2image " << std::endl;
       for ( size_t i = 0; i < laser2image_points_.size(); ++i ) {
         cv::circle( conversion_mat_, laser2image_points_[i], 2, cv::Scalar( 255, 0, 0 ), 2 );
       }
-      //std::cout << "laser2image circle" << std::endl;
     }
     
-    // image must be copied since it uses the conversion_mat_ for storage which is asynchronously overwritten in the next callback invocation
     if ( conversion_mat_.rows > 0 && conversion_mat_.cols > 0 ) {
       QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
                     QImage::Format_RGB888 );
       ui_.image_frame->setImage( image );
+      ui_.image_frame->setInnerFrameFixedSize( image.size());
     }
   }
   
   void ImageView::shutdownPlugin() {
     subscriber_.shutdown();
-    pub_mouse_left_.shutdown();
   }
   
   void ImageView::onFreezeImageBoxToggle( bool val ) {
@@ -196,84 +176,120 @@ namespace rqt_image_view {
   
   void ImageView::onLeftSliderValChanged( int val ) {
     if ( measurement_laser_ ) {
-      double angle_min = measurement_laser_->getLaser().angle_min;
-      double angle_max = measurement_laser_->getLaser().angle_max;
+      double angle_min = 0, angle_max = 1;
+      {
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        angle_min = measurement_laser_->getLaser().angle_min;
+        angle_max = measurement_laser_->getLaser().angle_max;
+      }
       rightSplitAngle_ =
-          ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
-      std::cout << "laser2map " << std::endl;
+          ((static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaser->maximum())) * (angle_max - angle_min)) +
+          angle_min;
       updateLaser2Map();
-      std::cout << "draw images " << std::endl;
       drawImages();
     }
+  }
+  
+  void ImageView::onLeftDistanceSliderValChanged( int val ) {
+    restrict_left_laser_max_ = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
+    
+    //Parentheses needed, otherwise self inflicted deadlock
+    {
+      std::lock_guard<std::mutex> lock( mutex_laser_ );
+      double range_max = 30;
+      if ( measurement_laser_ ) {
+        //range_max = measurement_laser_->getLaser().range_max;
+      }
+      restrict_left_laser_max_ *= range_max;
+    }
+    
+    std::cout << "lm " << restrict_left_laser_max_ << std::endl;
+    
+    updateLaser2Map();
+    drawImages();
   }
   
   void ImageView::onRightSliderValChanged( int val ) {
     if ( measurement_laser_ ) {
-      double angle_min = measurement_laser_->getLaser().angle_min;
-      double angle_max = measurement_laser_->getLaser().angle_max;
+      double angle_min = 0, angle_max = 1;
+      {
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        angle_min = measurement_laser_->getLaser().angle_min;
+        angle_max = measurement_laser_->getLaser().angle_max;
+      }
       leftSplitAngle_ =
-          ((static_cast<double>(val) / 100.0) * (angle_max - angle_min)) + angle_min;
-      std::cout << "laser2map " << std::endl;
+          ((static_cast<double>(val) / static_cast<double>(ui_.sliderRightLaser->maximum())) *
+           (angle_max - angle_min)) + angle_min;
       updateLaser2Map();
-      std::cout << "drawimages " << std::endl;
       drawImages();
     }
   }
   
+  void ImageView::onRightDistanceSliderValChanged( int val ) {
+    restrict_right_laser_max_ = static_cast<double>(val) / static_cast<double>(ui_.sliderRightLaserD->maximum());
+    
+    //Parentheses needed, otherwise self inflicted deadlock
+    {
+      std::lock_guard<std::mutex> lock( mutex_laser_ );
+      double range_max = 30;
+      if ( measurement_laser_ ) {
+        //range_max = measurement_laser_->getLaser().range_max;
+      }
+      restrict_right_laser_max_ *= range_max;
+    }
+    
+    std::cout << "rm " << restrict_right_laser_max_ << std::endl;
+    
+    updateLaser2Map();
+    drawImages();
+  }
+  
   void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
     QString topic = ui_.topics_combo_box->currentText();
-    //qDebug("ImageView::saveSettings() topic '%s'", topic.toStdString().c_str());
+    qDebug( "ImageView::saveSettings() topic '%s'", topic.toStdString().c_str());
     instance_settings.setValue( "topic", topic );
-    instance_settings.setValue( "zoom1", ui_.zoom_1_push_button->isChecked());
-    instance_settings.setValue( "dynamic_range", ui_.dynamic_range_check_box->isChecked());
-    instance_settings.setValue( "max_range", ui_.max_range_double_spin_box->value());
-    instance_settings.setValue( "publish_click_location", ui_.publish_click_location_check_box->isChecked());
-    instance_settings.setValue( "mouse_pub_topic", ui_.publish_click_location_topic_line_edit->text());
-    instance_settings.setValue( "toolbar_hidden", hide_toolbar_action_->isChecked());
-    instance_settings.setValue( "num_gridlines", ui_.num_gridlines_spin_box->value());
-    instance_settings.setValue( "smooth_image", ui_.smooth_image_check_box->isChecked());
-    instance_settings.setValue( "rotate", rotate_state_ );
+    plugin_settings.setValue( "topic", topic );
     //instance_settings.setValue( "laser_box", ui_.laser_scan_checkbox->isChecked());
   }
   
   void ImageView::restoreSettings( const qt_gui_cpp::Settings &plugin_settings,
                                    const qt_gui_cpp::Settings &instance_settings ) {
-    bool zoom1_checked = instance_settings.value( "zoom1", false ).toBool();
-    ui_.zoom_1_push_button->setChecked( zoom1_checked );
-    bool dynamic_range_checked = instance_settings.value( "dynamic_range", false ).toBool();
-    ui_.dynamic_range_check_box->setChecked( dynamic_range_checked );
-    
-    double max_range = instance_settings.value( "max_range", ui_.max_range_double_spin_box->value()).toDouble();
-    ui_.max_range_double_spin_box->setValue( max_range );
-    
-    num_gridlines_ = instance_settings.value( "num_gridlines", ui_.num_gridlines_spin_box->value()).toInt();
-    ui_.num_gridlines_spin_box->setValue( num_gridlines_ );
-    
-    QString topic = instance_settings.value( "topic", "" ).toString();
-    // don't overwrite topic name passed as command line argument
-    if ( !arg_topic_name.isEmpty()) {
-      arg_topic_name = "";
-    } else {
-      //qDebug("ImageView::restoreSettings() topic '%s'", topic.toStdString().c_str());
-      selectTopic( topic );
-    }
-    
-    bool publish_click_location = instance_settings.value( "publish_click_location", false ).toBool();
-    ui_.publish_click_location_check_box->setChecked( publish_click_location );
-    
-    QString pub_topic = instance_settings.value( "mouse_pub_topic", "" ).toString();
-    ui_.publish_click_location_topic_line_edit->setText( pub_topic );
-    
-    bool toolbar_hidden = instance_settings.value( "toolbar_hidden", false ).toBool();
-    hide_toolbar_action_->setChecked( toolbar_hidden );
-    
-    bool smooth_image_checked = instance_settings.value( "smooth_image", false ).toBool();
-    ui_.smooth_image_check_box->setChecked( smooth_image_checked );
-    
-    rotate_state_ = static_cast<RotateState>(instance_settings.value( "rotate", 0 ).toInt());
-    if ( rotate_state_ >= ROTATE_STATE_COUNT )
-      rotate_state_ = ROTATE_0;
-    syncRotateLabel();
+    //bool zoom1_checked = instance_settings.value( "zoom1", false ).toBool();
+    //ui_.zoom_1_push_button->setChecked( zoom1_checked );
+    //bool dynamic_range_checked = instance_settings.value( "dynamic_range", false ).toBool();
+    //ui_.dynamic_range_check_box->setChecked( dynamic_range_checked );
+    //
+    //double max_range = instance_settings.value( "max_range", ui_.max_range_double_spin_box->value()).toDouble();
+    //ui_.max_range_double_spin_box->setValue( max_range );
+    //
+    //num_gridlines_ = instance_settings.value( "num_gridlines", ui_.num_gridlines_spin_box->value()).toInt();
+    //ui_.num_gridlines_spin_box->setValue( num_gridlines_ );
+    //
+    //QString topic = instance_settings.value( "topic", "" ).toString();
+    //// don't overwrite topic name passed as command line argument
+    //if ( !arg_topic_name.isEmpty()) {
+    //  arg_topic_name = "";
+    //} else {
+    //  //qDebug("ImageView::restoreSettings() topic '%s'", topic.toStdString().c_str());
+    //  selectTopic( topic );
+    //}
+    //
+    //bool publish_click_location = instance_settings.value( "publish_click_location", false ).toBool();
+    //ui_.publish_click_location_check_box->setChecked( publish_click_location );
+    //
+    //QString pub_topic = instance_settings.value( "mouse_pub_topic", "" ).toString();
+    //ui_.publish_click_location_topic_line_edit->setText( pub_topic );
+    //
+    //bool toolbar_hidden = instance_settings.value( "toolbar_hidden", false ).toBool();
+    //hide_toolbar_action_->setChecked( toolbar_hidden );
+    //
+    //bool smooth_image_checked = instance_settings.value( "smooth_image", false ).toBool();
+    //ui_.smooth_image_check_box->setChecked( smooth_image_checked );
+    //
+    //rotate_state_ = static_cast<RotateState>(instance_settings.value( "rotate", 0 ).toInt());
+    //if ( rotate_state_ >= ROTATE_STATE_COUNT )
+    //  rotate_state_ = ROTATE_0;
+    //syncRotateLabel();
   }
   
   void ImageView::updateTopicList() {
@@ -337,14 +353,12 @@ namespace rqt_image_view {
         
         // add raw topic
         topics.insert( topic );
-        //qDebug("ImageView::getTopics() raw topic '%s'", topic.toStdString().c_str());
         
         // add transport specific sub-topics
         for ( QList<QString>::const_iterator jt = transports.begin(); jt != transports.end(); jt++ ) {
           if ( all_topics.contains( topic + "/" + *jt )) {
             QString sub = topic + " " + *jt;
             topics.insert( sub );
-            //qDebug("ImageView::getTopics() transport specific sub-topic '%s'", sub.toStdString().c_str());
           }
         }
       }
@@ -398,13 +412,10 @@ namespace rqt_image_view {
       }
       
       topic_camera_info += "camera_info";
-      //std::cout << "camera info topic " << topic_camera_info << std::endl;
       
       image_transport::ImageTransport it( getNodeHandle());
       image_transport::TransportHints hints( transport.toStdString());
       
-      //std::cout << "subscribing to " << topic.toStdString() << std::endl;
-      //std::cout << "subscribing to " << topic_camera_info << std::endl;
       try {
         subscriber_ = it.subscribe( topic.toStdString(), 1, &ImageView::callbackImage, this, hints );
         //qDebug("ImageView::onTopicChanged() to topic '%s' with transport '%s'", topic.toStdString().c_str(), subscriber_.getTransport().c_str());
@@ -421,41 +432,6 @@ namespace rqt_image_view {
     onMousePublish( ui_.publish_click_location_check_box->isChecked());
   }
   
-  void ImageView::onZoom1( bool checked ) {
-    if ( checked ) {
-      if ( ui_.image_frame->getImage().isNull()) {
-        return;
-      }
-      ui_.image_frame->setInnerFrameFixedSize( ui_.image_frame->getImage().size());
-    } else {
-      ui_.image_frame->setInnerFrameMinimumSize( QSize( 80, 60 ));
-      ui_.image_frame->setMaximumSize( QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-      widget_->setMinimumSize( QSize( 80, 60 ));
-      widget_->setMaximumSize( QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-    }
-  }
-  
-  void ImageView::onDynamicRange( bool checked ) {
-    ui_.max_range_double_spin_box->setEnabled( !checked );
-  }
-  
-  void ImageView::updateNumGridlines() {
-    num_gridlines_ = ui_.num_gridlines_spin_box->value();
-  }
-  
-  void ImageView::saveImage() {
-    // take a snapshot before asking for the filename
-    QImage img = ui_.image_frame->getImageCopy();
-    
-    QString file_name = QFileDialog::getSaveFileName( widget_, tr( "Save as image" ), "image.png",
-                                                      tr( "Image (*.bmp *.jpg *.png *.tiff)" ));
-    if ( file_name.isEmpty()) {
-      return;
-    }
-    
-    img.save( file_name );
-  }
-  
   void ImageView::onMousePublish( bool checked ) {
     std::string topicName;
     if ( pub_topic_custom_ ) {
@@ -469,13 +445,7 @@ namespace rqt_image_view {
       ui_.publish_click_location_topic_line_edit->setText( QString::fromStdString( topicName ));
     }
     
-    if ( checked ) {
-      pub_mouse_left_ = getNodeHandle().advertise<geometry_msgs::Point>( topicName, 1000 );
-    } else {
-      pub_mouse_left_.shutdown();
-    }
-    
-    pub_fiducial_detection_ = getNodeHandle().advertise<marker_msgs::FiducialDetection>( "/fiducials", 1000 );
+    //pub_fiducial_detection_ = getNodeHandle().advertise<marker_msgs::FiducialDetection>( "/fiducials", 1000 );
   }
   
   void ImageView::onMouseLeft( int x, int y ) {
@@ -488,8 +458,6 @@ namespace rqt_image_view {
           (double) y / (double) ui_.image_frame->height() * (double) ui_.image_frame->getImage().height());
       clickCanvasLocation.z = 0;
       
-      geometry_msgs::Point clickLocation = clickCanvasLocation;
-      
       clickedPoints_.push_back( cv::Point2d( clickCanvasLocation.x, clickCanvasLocation.y ));
       //std::cout << "clicked x, y: " << clickedPoints_.back().x << ", " << clickedPoints_.back().y << std::endl;
       
@@ -498,112 +466,12 @@ namespace rqt_image_view {
                     QImage::Format_RGB888 );
       ui_.image_frame->setImage( image );
       
-      pub_mouse_left_.publish( clickLocation );
     }
   }
   
   void ImageView::onPubTopicChanged() {
     pub_topic_custom_ = !(ui_.publish_click_location_topic_line_edit->text().isEmpty());
     onMousePublish( ui_.publish_click_location_check_box->isChecked());
-  }
-  
-  void ImageView::onHideToolbarChanged( bool hide ) {
-    ui_.toolbar_widget->setVisible( !hide );
-  }
-  
-  void ImageView::onRotateLeft() {
-    int m = rotate_state_ - 1;
-    if ( m < 0 )
-      m = ROTATE_STATE_COUNT - 1;
-    
-    rotate_state_ = static_cast<RotateState>(m);
-    syncRotateLabel();
-  }
-  
-  void ImageView::onRotateRight() {
-    rotate_state_ = static_cast<RotateState>((rotate_state_ + 1) % ROTATE_STATE_COUNT);
-    syncRotateLabel();
-  }
-  
-  void ImageView::syncRotateLabel() {
-    switch ( rotate_state_ ) {
-      default:
-      case ROTATE_0:
-        ui_.rotate_label->setText( "0°" );
-        break;
-      case ROTATE_90:
-        ui_.rotate_label->setText( "90°" );
-        break;
-      case ROTATE_180:
-        ui_.rotate_label->setText( "180°" );
-        break;
-      case ROTATE_270:
-        ui_.rotate_label->setText( "270°" );
-        break;
-    }
-  }
-  
-  void ImageView::invertPixels( int x, int y ) {
-    // Could do 255-conversion_mat_.at<cv::Vec3b>(cv::Point(x,y))[i], but that doesn't work well on gray
-    cv::Vec3b &pixel = conversion_mat_.at<cv::Vec3b>( cv::Point( x, y ));
-    if ( pixel[0] + pixel[1] + pixel[2] > 3 * 127 )
-      pixel = cv::Vec3b( 0, 0, 0 );
-    else
-      pixel = cv::Vec3b( 255, 255, 255 );
-  }
-  
-  QList<int> ImageView::getGridIndices( int size ) const {
-    QList<int> indices;
-    
-    // the spacing between adjacent grid lines
-    float grid_width = 1.0f * size / (num_gridlines_ + 1);
-    
-    // select grid line(s) closest to the center
-    float index;
-    if ( num_gridlines_ % 2 )  // odd
-    {
-      indices.append( size / 2 );
-      // make the center line 2px wide in case of an even resolution
-      if ( size % 2 == 0 )  // even
-        indices.append( size / 2 - 1 );
-      index = 1.0f * (size - 1) / 2;
-    } else  // even
-    {
-      index = grid_width * (num_gridlines_ / 2);
-      // one grid line before the center
-      indices.append( round( index ));
-      // one grid line after the center
-      indices.append( size - 1 - round( index ));
-    }
-    
-    // add additional grid lines from the center to the border of the image
-    int lines = (num_gridlines_ - 1) / 2;
-    while ( lines > 0 ) {
-      index -= grid_width;
-      indices.append( round( index ));
-      indices.append( size - 1 - round( index ));
-      lines--;
-    }
-    
-    return indices;
-  }
-  
-  void ImageView::overlayGrid() {
-    // vertical gridlines
-    QList<int> columns = getGridIndices( conversion_mat_.cols );
-    for ( QList<int>::const_iterator x = columns.begin(); x != columns.end(); ++x ) {
-      for ( int y = 0; y < conversion_mat_.rows; ++y ) {
-        invertPixels( *x, y );
-      }
-    }
-    
-    // horizontal gridlines
-    QList<int> rows = getGridIndices( conversion_mat_.rows );
-    for ( QList<int>::const_iterator y = rows.begin(); y != rows.end(); ++y ) {
-      for ( int x = 0; x < conversion_mat_.cols; ++x ) {
-        invertPixels( x, *y );
-      }
-    }
   }
   
   void ImageView::updateLaser2Map() {
@@ -613,11 +481,11 @@ namespace rqt_image_view {
       figure_local_->clear();
       
       {
-        double c_left = cos( leftSplitAngle_ ) * 10.0;
-        double s_left = sin( leftSplitAngle_ ) * 10.0;
+        double c_left = cos( leftSplitAngle_ ) * restrict_left_laser_max_;
+        double s_left = sin( leftSplitAngle_ ) * restrict_left_laser_max_;
         auto pleft = tuw::Point2D( c_left, s_left );
-        double c_right = cos( rightSplitAngle_ ) * 10.0;
-        double s_right = sin( rightSplitAngle_ ) * 10.0;
+        double c_right = cos( rightSplitAngle_ ) * restrict_right_laser_max_;
+        double s_right = sin( rightSplitAngle_ ) * restrict_right_laser_max_;
         auto pright = tuw::Point2D( c_right, s_right );
         
         figure_local_->line( tuw::Point2D( 0, 0 ), pleft, figure_local_->blue );
@@ -631,13 +499,9 @@ namespace rqt_image_view {
         for ( auto it_l = measurement_laser_->begin();
               it_l != measurement_laser_->end();
               ++it_l ) {
-          if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ ) {
-            if ( !is_rightmost ) {
-              figure_local_->circle( it_l->end_point, 2, figure_local_->red );
-              is_rightmost = true;
-            } else {
-              figure_local_->circle( it_l->end_point, 2, figure_local_->green );
-            }
+          if ( it_l->angle > leftSplitAngle_ && it_l->angle < rightSplitAngle_ &&
+               it_l->range < restrict_left_laser_max_ ) {
+            figure_local_->circle( it_l->end_point, 2, figure_local_->green );
             it_l->set_valid( true );
           } else {
             figure_local_->circle( it_l->end_point, 2, figure_local_->magenta );
@@ -662,6 +526,13 @@ namespace rqt_image_view {
     }
   }
   
+  void ImageView::onRefinePressed() {
+    ui_.freeze_laser_checkbox->setChecked( false );
+    ui_.freeze_image_checkbox->setChecked( false );
+    ui_.laser_scan_checkbox->setChecked( false );
+    clickedPoints_.clear();
+  }
+  
   bool ImageView::updateLaser2Image() {
     if ( measurement_image_ && measurement_image_->getCameraModel() && measurement_laser_ ) {
       
@@ -670,12 +541,10 @@ namespace rqt_image_view {
       const auto T_WL = measurement_laser_->getTfWorldSensor();
       const auto T_CL = T_WC.inverse() * T_WL;
       
-      std::lock_guard<std::mutex> lock( mutex_laser_ );
-      laser2image_points_.resize( measurement_laser_->size());
-      std::size_t i = 0;
-      
       {
-        
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        laser2image_points_.resize( measurement_laser_->size());
+        std::size_t i = 0;
         for ( auto beam_it = measurement_laser_->begin();
               beam_it != measurement_laser_->end();
               ++beam_it, ++i ) {
@@ -688,10 +557,8 @@ namespace rqt_image_view {
           laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
         }
       }
-      
       return true;
     }
-    
     return false;
   }
   
@@ -724,14 +591,10 @@ namespace rqt_image_view {
     if ( measurement_image_ && !measurement_image_->getCameraModel()) {
       measurement_image_->setCameraModel( camera_model_ );
     }
-    //std::cout << "callbackCamerainfo end" << std::endl;
   }
   
   void ImageView::callbackImage( const sensor_msgs::Image::ConstPtr &msg ) {
-    //std::cout << "cb image" << std::endl;
-    
     {
-      
       std::lock_guard<std::mutex> lock( mutex_image_ );
       
       if ( !freeze_image_ ) {
@@ -746,12 +609,6 @@ namespace rqt_image_view {
           if ( camera_model_ ) {
             measurement_image_->setCameraModel( camera_model_ );
           }
-          //if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
-          //  measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
-          //}
-          
-          if ( num_gridlines_ > 0 )
-            overlayGrid();
         }
         catch (cv_bridge::Exception &e) {
           try {
@@ -763,23 +620,6 @@ namespace rqt_image_view {
             } else if ( msg->encoding == "8UC1" ) {
               // convert gray to rgb
               cv::cvtColor( cv_ptr->image, conversion_mat_, CV_GRAY2RGB );
-            } else if ( msg->encoding == "16UC1" || msg->encoding == "32FC1" ) {
-              // scale / quantify
-              double min = 0;
-              double max = ui_.max_range_double_spin_box->value();
-              if ( msg->encoding == "16UC1" ) max *= 1000;
-              if ( ui_.dynamic_range_check_box->isChecked()) {
-                // dynamically adjust range based on min/max in image
-                cv::minMaxLoc( cv_ptr->image, &min, &max );
-                if ( min == max ) {
-                  // completely homogeneous images are displayed in gray
-                  min = 0;
-                  max = 2;
-                }
-              }
-              cv::Mat img_scaled_8u;
-              cv::Mat( cv_ptr->image - min ).convertTo( img_scaled_8u, CV_8UC1, 255. / (max - min));
-              cv::cvtColor( img_scaled_8u, conversion_mat_, CV_GRAY2RGB );
             } else {
               qWarning( "ImageView.callback_image() could not convert image from '%s' to 'rgb8' (%s)",
                         msg->encoding.c_str(),
@@ -798,126 +638,52 @@ namespace rqt_image_view {
         }
       }
       
-      if ( !ui_.zoom_1_push_button->isEnabled()) {
-        ui_.zoom_1_push_button->setEnabled( true );
-      }
-      
-      // Need to update the zoom 1 every new image in case the image aspect ratio changed,
-      // though could check and see if the aspect ratio changed or not.
-      onZoom1( ui_.zoom_1_push_button->isChecked());
-      
     }
-    
     drawImages();
   }
   
   void ImageView::onPublisherButton() {
+    
     if ( clickedPoints_.size() == 4 && use_laser_scan_range_ ) {
-      marker_msgs::FiducialDetection fd;
       
-      if ( measurement_image_->getCameraModel()) {
-        std::cout << "Has camera model" << std::endl;
-      } else {
-        std::cout << "Has no camera model" << std::endl;
-      }
-
-#ifdef ENABLE_PUBLISHING
-      cv::Matx33d K = measurement_image_->getCameraModel()->intrinsicMatrix();
-      cv::Mat D = measurement_image_->getCameraModel()->distortionCoeffs();
-      
-      size_t k = 0;
-      for ( size_t i = 0; i < K.rows; ++i ) {
-        for ( size_t j = 0; j < K.cols; ++j ) {
-          fd.camera_k[k] = K( i, j );
-          k++;
-        }
-      }
-      
-      for ( int i = 0; i < 5; ++i ) {
-        fd.camera_d.push_back( 0 );
-      }
-      
-      for ( size_t i = 0; i < K.rows; ++i ) {
-        for ( size_t j = 0; j < K.cols; ++j ) {
-          //fd.camera_d.push_back( D.at<double>( i, j ));
-          //std::cout << D.at<double>( i, j ) << ", " << std::endl;
-        }
-      }
-      
-      fd.fiducial.resize( 1 );
-      fd.fiducial[0].ids = {0};
-      fd.fiducial[0].ids_confidence = {1.0};
-      
-      size_t point_count = 0;
-      //Fixed order bottom left, top left, top right, bottom right
-      for ( const cv::Point2d &pt : clickedPoints_ ) {
-        geometry_msgs::Point image_point;
-        image_point.x = pt.x;
-        image_point.y = pt.y;
-        fd.fiducial.back().image_points.push_back( image_point );
-        
-        geometry_msgs::Point object_point;
-        
-        if ( point_count == 0 ) {
-          object_point.x = 0;
-          object_point.y = 0;
-          object_point.z = 0;
-        } else if ( point_count == 1 ) {
-          object_point.x = 0;
-          object_point.y = 0;
-          object_point.z = 2.0f;
-        } else if ( point_count == 2 ) {
-          object_point.x = 0;
-          object_point.y = 0.9f;
-          object_point.z = 2.0f;
-        } else if ( point_count == 3 ) {
-          object_point.x = 0;
-          object_point.y = 0.9f;
-          object_point.z = 0.0f;
-        }
-        
-        fd.fiducial.back().object_points.push_back( object_point );
-        point_count++;
-      }
-      
-      pub_fiducial_detection_.publish( fd );
-    //}
-#else
       std::vector<cv::Point3f> object_points;
-      std::vector<tuw::Contour::Beam> laser_beams( measurement_laser_->size());
-      std::cout << "getting beams" << std::endl;
-      std::cout << "laser beams " << measurement_laser_->size() << std::endl;
-      auto end_it = std::copy_if( measurement_laser_->begin(), measurement_laser_->end(), laser_beams.begin(),
-                                  []( const tuw::Contour::Beam &b ) {
-                                    if ( b.is_valid()) {
-                                      return true;
-                                    }
-                                    return false;
-                                  } );
-      laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
-      std::cout << "got beams" << std::endl;
-      tuw::Contour::Beam leftMost = laser_beams.back();
-      tuw::Contour::Beam rightMost = laser_beams.front();
+      tuw::Contour::Beam leftMostBeam;
+      tuw::Contour::Beam rightMostBeam;
+      {
+        std::lock_guard<std::mutex> lock( mutex_laser_ );
+        std::vector<tuw::Contour::Beam> laser_beams( measurement_laser_->size());
+        auto end_it = std::copy_if( measurement_laser_->begin(), measurement_laser_->end(), laser_beams.begin(),
+                                    []( const tuw::Contour::Beam &b ) {
+                                      if ( b.is_valid()) {
+                                        return true;
+                                      }
+                                      return false;
+                                    } );
+        laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
+        //@ToDo: check if this is correct!
+        leftMostBeam = laser_beams.back();
+        rightMostBeam = laser_beams.front();
+      }
       
       size_t point_count = 0;
       for ( const cv::Point2d &pt : clickedPoints_ ) {
         
         cv::Point3d object_point;
         if ( point_count == 0 ) {
-          object_point.x = leftMost.end_point.x();
-          object_point.y = leftMost.end_point.y();
+          object_point.x = leftMostBeam.end_point.x();
+          object_point.y = leftMostBeam.end_point.y();
           object_point.z = 0;
         } else if ( point_count == 1 ) {
-          object_point.x = leftMost.end_point.x();
-          object_point.y = leftMost.end_point.y();
+          object_point.x = leftMostBeam.end_point.x();
+          object_point.y = leftMostBeam.end_point.y();
           object_point.z = 2.0f;
         } else if ( point_count == 2 ) {
-          object_point.x = rightMost.end_point.x();
-          object_point.y = rightMost.end_point.y();
+          object_point.x = rightMostBeam.end_point.x();
+          object_point.y = rightMostBeam.end_point.y();
           object_point.z = 2.0f;
         } else if ( point_count == 3 ) {
-          object_point.x = rightMost.end_point.x();
-          object_point.y = rightMost.end_point.y();
+          object_point.x = rightMostBeam.end_point.x();
+          object_point.y = rightMostBeam.end_point.y();
           object_point.z = 0.0f;
         }
         
@@ -926,42 +692,41 @@ namespace rqt_image_view {
         
       }
       
-      cv::Mat rv, tv;
-      std::vector<cv::Point2f> image_pnts;
-      image_pnts.resize( clickedPoints_.size());
-      std::copy( clickedPoints_.begin(), clickedPoints_.end(), image_pnts.begin());
-      cv::Matx33d Kmat = measurement_image_->getCameraModel()->intrinsicMatrix();
-      cv::Mat Dmat = measurement_image_->getCameraModel()->distortionCoeffs();
-      
-      cv::solvePnP( object_points, image_pnts, Kmat,
-                    Dmat, rv, tv );
-      
-      //This is the tf from the door to the camera
-      cv::Mat T_LC = cv::Mat::eye( 4, 4, CV_64FC1);
-      cv::Mat R33 = cv::Mat( T_LC, cv::Rect( 0, 0, 3, 3 ));
-      cv::Rodrigues( rv, R33 );
-      //std::cout << "size tv " << tv.size() << std::endl;
-      //std::cout << "size rv " << rv.size() << std::endl;
-      //for ( int i = 0; i < R33.rows; ++i ) {
-      //  for ( int j = 0; j < R33.cols; ++j ) {
-      //    m.at<double>( i, j ) = R33.at<double>( i, j );
-      //  }
-      //}
-      
-      for ( int i = 0; i < 3; ++i ) {
-        T_LC.at<double>( i, 3 ) = tv.at<double>( 0, i );
+      if ( !pnp_data_ ) {
+        pnp_data_.reset( new PnPData());
+        pnp_data_->K = measurement_image_->getCameraModel()->intrinsicMatrix();
+        pnp_data_->D = measurement_image_->getCameraModel()->distortionCoeffs();
       }
       
-      std::cout << T_LC << std::endl;
+      cv::Mat rv, tv;
+      
+      pnp_data_->image_points.insert( std::begin( pnp_data_->image_points ), std::begin( clickedPoints_ ),
+                                      std::end( clickedPoints_ ));
+      
+      pnp_data_->object_points.insert( std::begin( pnp_data_->object_points ), std::begin( object_points ),
+                                       std::end( object_points ));
+      
+      
+      cv::solvePnP( pnp_data_->object_points, pnp_data_->image_points, pnp_data_->K,
+                    pnp_data_->D, rv, tv );
+      
+      pnp_data_->T_LC = cv::Mat::eye( 4, 4, CV_64FC1);
+      cv::Mat R33 = cv::Mat( pnp_data_->T_LC, cv::Rect( 0, 0, 3, 3 ));
+      cv::Rodrigues( rv, R33 );
+      
+      for ( int i = 0; i < 3; ++i ) {
+        pnp_data_->T_LC.at<double>( i, 3 ) = tv.at<double>( 0, i );
+      }
+      
       std::cout << "tv " << tv << std::endl;
       std::cout << "rv " << rv << std::endl;
       
       if ( measurement_laser_ ) {
-        measurement_laser_->setTfWorldSensor( T_LC );
+        Eigen::Matrix4d T_WL = measurement_laser_->getTfWorldSensor();
+        Eigen::Map<Eigen::Matrix4d> T_LC_e( reinterpret_cast<double *>(pnp_data_->T_LC.data));
+        measurement_image_->setTfWorldSensor( T_WL * T_LC_e );
         updateLaser2Image();
       }
-
-#endif
     }
   }
   

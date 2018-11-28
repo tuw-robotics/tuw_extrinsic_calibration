@@ -16,6 +16,8 @@
 #include "qdir.h"
 #include <QProxyStyle>
 
+using namespace rqt_image_view;
+
 class SliderProxy : public QProxyStyle {
 public:
   int pixelMetric( PixelMetric metric, const QStyleOption *option = 0, const QWidget *widget = 0 ) const {
@@ -35,13 +37,13 @@ RangeSlider::RangeSlider( QWidget *parent )
   //styling
   setOrientation( Qt::Horizontal );
   setAcceptDrops( true );
-  //@ToDo: reintroduce
-  // SliderProxy *aSliderProxy = new SliderProxy();
-  //
-  // //hard coded path to image :/ sorry
-  // QString path = QDir::fromNativeSeparators( ImagesPath( "handle.png" ));
-  // setStyleSheet( "QSlider::handle { image: url(" + path + "); }" );
-  // setStyle( parent->style() );
+  
+  SliderProxy *aSliderProxy = new SliderProxy();
+  
+  //hard coded path to image :/ sorry
+  QString path = QDir::fromNativeSeparators( "images/icon_slider_handle.png" );
+  setStyleSheet( "QSlider::handle { image: url(" + path + "); }" );
+  setStyle( aSliderProxy );
   
   //setting up the alternate handle
   alt_handle = new RangeSliderHandle( this );
@@ -57,11 +59,17 @@ RangeSliderHandle::RangeSliderHandle( RangeSlider *_parent )
   
   //styling
   setAcceptDrops( true );
-  //hard coded path to image :/ sorry
-  //@ToDo: reintroduce
-  //QPixmap pix = QPixmap( ImagesPath( "handle.png" ));
-  //pix = pix.scaled( 25, 25, Qt::IgnoreAspectRatio, Qt::SmoothTransformation );
-  //setPixmap( pix );
+  QIcon icon = QIcon( "images/icon_slider_handle.png" );
+  
+  QList<QSize> sizes = icon.availableSizes();
+  int maximum = sizes[0].width();
+  for ( int i = 1; i < sizes.size(); ++i )
+    maximum = qMax( maximum, sizes[i].width());
+  
+  QPixmap pix = icon.pixmap( QSize( maximum, maximum ));
+  
+  pix = pix.scaled( 16, 16, Qt::IgnoreAspectRatio, Qt::SmoothTransformation );
+  setPixmap( pix );
 }
 
 int RangeSlider::alt_value() {

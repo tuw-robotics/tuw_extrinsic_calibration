@@ -102,29 +102,15 @@ namespace rqt_image_view {
     
     virtual void onTopicChanged( int index );
     
-    virtual void onZoom1( bool checked );
-    
-    virtual void onDynamicRange( bool checked );
-    
-    virtual void saveImage();
-    
     virtual void onLeftSliderValChanged( int val );
     
     virtual void onRightSliderValChanged( int val );
-    
-    virtual void updateNumGridlines();
     
     virtual void onMousePublish( bool checked );
     
     virtual void onMouseLeft( int x, int y );
     
     virtual void onPubTopicChanged();
-    
-    virtual void onHideToolbarChanged( bool hide );
-    
-    virtual void onRotateLeft();
-    
-    virtual void onRotateRight();
     
     virtual void onLaserScanBoxToggle( bool val );
     
@@ -133,6 +119,12 @@ namespace rqt_image_view {
     virtual void onFreezeImageBoxToggle( bool val );
     
     virtual void onPublisherButton();
+    
+    virtual void onRefinePressed();
+    
+    virtual void onLeftDistanceSliderValChanged( int val );
+    
+    virtual void onRightDistanceSliderValChanged( int val );
   
   protected:
     
@@ -144,18 +136,23 @@ namespace rqt_image_view {
     
     virtual void callbackLaser( const sensor_msgs::LaserScan &_laser );
     
-    virtual void invertPixels( int x, int y );
-    
-    QList<int> getGridIndices( int size ) const;
-    
     virtual bool updateLaser2Image();
     
     virtual void updateLaser2Map();
     
-    virtual void overlayGrid();
-    
     virtual bool getStaticTF( const std::string &world_frame, const std::string &source_frame,
                               tf::StampedTransform &_pose, bool debug );
+    
+    struct PnPData {
+    public:
+      PnPData() {
+      }
+      
+      std::vector<cv::Point2f> image_points;
+      std::vector<cv::Point3f> object_points;
+      cv::Matx33d K;
+      cv::Mat D, T_LC;
+    };
     
     Ui::ImageViewWidget ui_;
     
@@ -182,30 +179,18 @@ namespace rqt_image_view {
     double rightSplitAngle_;
   
   private:
-    enum RotateState {
-      ROTATE_0 = 0,
-      ROTATE_90 = 1,
-      ROTATE_180 = 2,
-      ROTATE_270 = 3,
-      ROTATE_STATE_COUNT
-    };
     
-    void syncRotateLabel();
-    
+    std::unique_ptr<PnPData> pnp_data_;
     QString arg_topic_name;
-    ros::Publisher pub_mouse_left_;
-    ros::Publisher pub_fiducial_detection_;
+    
     bool use_laser_scan_range_;
     bool freeze_laser_scan_;
     bool freeze_image_;
-    
     bool pub_topic_custom_;
     
-    QAction *hide_toolbar_action_;
-    
     int num_gridlines_;
-    
-    RotateState rotate_state_;
+    double restrict_left_laser_max_;
+    double restrict_right_laser_max_;
     
     tf::TransformListener listenerTF_;
     

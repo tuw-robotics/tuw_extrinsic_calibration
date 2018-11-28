@@ -27,6 +27,17 @@
     <widget class="QWidget" name="toolbar_widget" native="true">
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QPushButton" name="refine_button">
+          <property name="text">
+           <string>Refine</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
          <widget class="QComboBox" name="topics_combo_box">
@@ -44,87 +55,6 @@
            <iconset theme="view-refresh">
             <normaloff/>
            </iconset>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="zoom_1_push_button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="toolTip">
-           <string>Original zoom</string>
-          </property>
-          <property name="icon">
-           <iconset theme="zoom-original">
-            <normaloff/>
-           </iconset>
-          </property>
-          <property name="checkable">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSpinBox" name="num_gridlines_spin_box">
-          <property name="toolTip">
-           <string># of gridlines to overlay</string>
-          </property>
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>20</number>
-          </property>
-          <property name="value">
-           <number>0</number>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="dynamic_range_check_box">
-          <property name="toolTip">
-           <string>Dynamic depth range</string>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QDoubleSpinBox" name="max_range_double_spin_box">
-          <property name="toolTip">
-           <string>Max depth</string>
-          </property>
-          <property name="suffix">
-           <string>m</string>
-          </property>
-          <property name="minimum">
-           <double>0.010000000000000</double>
-          </property>
-          <property name="maximum">
-           <double>100.000000000000000</double>
-          </property>
-          <property name="value">
-           <double>10.000000000000000</double>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="save_as_image_push_button">
-          <property name="toolTip">
-           <string>Save as image</string>
-          </property>
-          <property name="icon">
-           <iconset theme="image-x-generic">
-            <normaloff/>
-           </iconset>
-          </property>
-          <property name="iconSize">
-           <size>
-            <width>16</width>
-            <height>16</height>
-           </size>
           </property>
          </widget>
         </item>
@@ -160,50 +90,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="smooth_image_check_box">
-          <property name="toolTip">
-           <string>Dynamic depth range</string>
-          </property>
-          <property name="text">
-           <string>Smooth scaling</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="rotate_left_push_button">
-          <property name="text">
-           <string/>
-          </property>
-          <property name="icon">
-           <iconset theme="object-rotate-left">
-            <normaloff/>
-           </iconset>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="rotate_label">
-          <property name="text">
-           <string>0°</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="rotate_right_push_button">
-          <property name="text">
-           <string/>
-          </property>
-          <property name="icon">
-           <iconset theme="object-rotate-right">
-            <normaloff/>
-           </iconset>
-          </property>
-         </widget>
-        </item>
-        <item>
          <spacer name="horizontalSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -221,23 +107,45 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <widget class="QSlider" name="sliderLeftLaser">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="sliderLeftLaserD">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QSlider" name="sliderRightLaser">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="sliderRightLaserD">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
          <widget class="QCheckBox" name="laser_scan_checkbox">
           <property name="text">
            <string>Use range (green)</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSlider" name="sliderLeftLaser">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSlider" name="sliderRightLaser">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
           </property>
          </widget>
         </item>
@@ -294,7 +202,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>312</height>
+        <height>283</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -330,8 +238,6 @@
          <property name="lineWidth">
           <number>1</number>
          </property>
-         <zorder>toolbar_widget</zorder>
-         <zorder>scrollArea_2</zorder>
         </widget>
        </item>
       </layout>
@@ -352,7 +258,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>312</height>
+        <height>283</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -394,7 +300,6 @@
          <property name="lineWidth">
           <number>1</number>
          </property>
-         <zorder>scrollArea_2</zorder>
         </widget>
        </item>
       </layout>
