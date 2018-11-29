@@ -151,7 +151,7 @@ namespace rqt_image_view {
       std::vector<cv::Point2f> image_points;
       std::vector<cv::Point3f> object_points;
       cv::Matx33d K;
-      cv::Mat D, T_LC;
+      cv::Mat D, T_CL;
     };
     
     Ui::ImageViewWidget ui_;
@@ -168,7 +168,7 @@ namespace rqt_image_view {
     
     std::unique_ptr<tuw::LaserMeasurement> measurement_laser_;
     std::unique_ptr<tuw::ImageMeasurement> measurement_image_;
-    std::vector<cv::Point2d> laser2image_points_;
+    std::vector<std::pair<cv::Point2d, cv::Scalar>> laser2image_points_colored_;
     
     std::map<std::string, std::shared_ptr<tf::StampedTransform>> tfMap_;
     std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;

@@ -144,9 +144,10 @@ namespace rqt_image_view {
       }
     }
     
-    if ( laser2image_points_.size()) {
-      for ( size_t i = 0; i < laser2image_points_.size(); ++i ) {
-        cv::circle( conversion_mat_, laser2image_points_[i], 2, cv::Scalar( 255, 0, 0 ), 2 );
+    if ( laser2image_points_colored_.size()) {
+      for ( size_t i = 0; i < laser2image_points_colored_.size(); ++i ) {
+        cv::circle( conversion_mat_, laser2image_points_colored_[i].first, 2, laser2image_points_colored_[i].second,
+                    2 );
       }
     }
     
@@ -246,6 +247,7 @@ namespace rqt_image_view {
   
   void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
     QString topic = ui_.topics_combo_box->currentText();
+    std::cout << "savesettings()" << std::endl;
     qDebug( "ImageView::saveSettings() topic '%s'", topic.toStdString().c_str());
     instance_settings.setValue( "topic", topic );
     plugin_settings.setValue( "topic", topic );
@@ -536,14 +538,20 @@ namespace rqt_image_view {
   bool ImageView::updateLaser2Image() {
     if ( measurement_image_ && measurement_image_->getCameraModel() && measurement_laser_ ) {
       
-      laser2image_points_.clear();
+      laser2image_points_colored_.clear();
       const auto T_WC = measurement_image_->getTfWorldSensor();
       const auto T_WL = measurement_laser_->getTfWorldSensor();
-      const auto T_CL = T_WC.inverse() * T_WL;
+      const Eigen::Matrix<double, 4, 4> T_CL = T_WC.inverse() * T_WL;
       
+      bool isID = T_CL( 0, 1 ) == 0 && T_CL( 0, 2 ) == 0 && T_CL( 0, 1 ) == 0 && T_CL( 0, 2 ) == 0;
+      isID &= T_CL( 1, 0 ) == 0 && T_CL( 1, 2 ) == 0 && T_CL( 1, 3 ) == 0;
+      isID &= T_CL( 2, 0 ) == 0 && T_CL( 2, 1 ) == 0 && T_CL( 2, 3 ) == 0;
+      isID &= T_CL( 3, 0 ) == 0 && T_CL( 3, 1 ) == 0 && T_CL( 3, 2 ) == 0;
+      
+      //std::cout << "T_CL " << T_CL << std::endl;
       {
         std::lock_guard<std::mutex> lock( mutex_laser_ );
-        laser2image_points_.resize( measurement_laser_->size());
+        laser2image_points_colored_.resize( measurement_laser_->size());
         std::size_t i = 0;
         for ( auto beam_it = measurement_laser_->begin();
               beam_it != measurement_laser_->end();
@@ -551,10 +559,17 @@ namespace rqt_image_view {
           Eigen::Vector4d laser_in_image =
               T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
           laser_in_image = laser_in_image / laser_in_image[3];
-          
-          //const auto pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
+          if ( isID ) {
+            std::swap( laser_in_image[1], laser_in_image[2] ); //y is z
+          }
           const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
-          laser2image_points_[i] = measurement_image_->getCameraModel()->project3dToPixel( pnt3d );
+          cv::Scalar color = figure_local_->magenta;
+          if ( beam_it->is_valid()) {
+            cv::Scalar color = figure_local_->green;
+          }
+          laser2image_points_colored_[i] = std::make_pair(
+              measurement_image_->getCameraModel()->project3dToPixel( pnt3d ),
+              color );
         }
       }
       return true;
@@ -566,21 +581,24 @@ namespace rqt_image_view {
     //@ToDo: here
     //std::cout << "laser cb" << std::endl;
     if ( !freeze_laser_scan_ ) {
-      laser2image_points_.clear();
+      laser2image_points_colored_.clear();
+      
+      std::lock_guard<std::mutex> lock( mutex_laser_ );
       
       tf::StampedTransform tf;
       tf.setIdentity();
-      //if ( !getStaticTF( "/r0/base_link", _laser.header.frame_id, tf, false )) {
-      //  //std::cout << "no laser gotten, return" << std::endl;
-      //  return;
-      //}
       
-      std::lock_guard<std::mutex> lock( mutex_laser_ );
+      if ( measurement_laser_ ) {
+        tf = measurement_laser_->getStampedTf();
+      }
+      
       measurement_laser_.reset( new tuw::LaserMeasurement( _laser, tf ));
       measurement_laser_->initFromScan();
     }
     //Auto check if measurement is there in method
     updateLaser2Map();
+    updateLaser2Image();
+    drawImages();
   }
   
   void ImageView::callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg ) {
@@ -605,7 +623,14 @@ namespace rqt_image_view {
           conversion_mat_ = cv_ptr->image;
           
           tf::StampedTransform tf;
+          tf.setIdentity();
+          
+          if ( measurement_image_ ) {
+            tf = measurement_image_->getStampedTf();
+          }
+          
           measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
+          
           if ( camera_model_ ) {
             measurement_image_->setCameraModel( camera_model_ );
           }
@@ -660,6 +685,8 @@ namespace rqt_image_view {
                                       return false;
                                     } );
         laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
+        std::cout << "total " << measurement_laser_->size() << std::endl;
+        std::cout << "valid " << laser_beams.size() << std::endl;
         //@ToDo: check if this is correct!
         leftMostBeam = laser_beams.back();
         rightMostBeam = laser_beams.front();
@@ -695,7 +722,7 @@ namespace rqt_image_view {
       if ( !pnp_data_ ) {
         pnp_data_.reset( new PnPData());
         pnp_data_->K = measurement_image_->getCameraModel()->intrinsicMatrix();
-        pnp_data_->D = measurement_image_->getCameraModel()->distortionCoeffs();
+        pnp_data_->D = cv::Mat::zeros( cv::Size( 1, 5 ), CV_64F );
       }
       
       cv::Mat rv, tv;
@@ -706,26 +733,44 @@ namespace rqt_image_view {
       pnp_data_->object_points.insert( std::begin( pnp_data_->object_points ), std::begin( object_points ),
                                        std::end( object_points ));
       
+      std::cout << "Object points" << std::endl;
+      for ( cv::Point3d obj_pt : pnp_data_->object_points ) {
+        std::cout << "(" << obj_pt.x << ", " << obj_pt.y << ", " << obj_pt.z << ")" << std::endl;
+      }
+      std::cout << "Image points" << std::endl;
+      for ( cv::Point2d img_pt : pnp_data_->image_points ) {
+        std::cout << "(" << img_pt.x << ", " << img_pt.y << ")" << std::endl;
+      }
+      std::cout << "K " << pnp_data_->K << std::endl;
+      std::cout << "D " << pnp_data_->D << std::endl;
       
-      cv::solvePnP( pnp_data_->object_points, pnp_data_->image_points, pnp_data_->K,
+      cv::solvePnP( pnp_data_->object_points,
+                    pnp_data_->image_points,
+                    pnp_data_->K,
                     pnp_data_->D, rv, tv );
       
-      pnp_data_->T_LC = cv::Mat::eye( 4, 4, CV_64FC1);
-      cv::Mat R33 = cv::Mat( pnp_data_->T_LC, cv::Rect( 0, 0, 3, 3 ));
+      pnp_data_->T_CL = cv::Mat::eye( 4, 4, CV_64FC1);
+      cv::Mat R33 = cv::Mat( pnp_data_->T_CL, cv::Rect( 0, 0, 3, 3 ));
       cv::Rodrigues( rv, R33 );
       
       for ( int i = 0; i < 3; ++i ) {
-        pnp_data_->T_LC.at<double>( i, 3 ) = tv.at<double>( 0, i );
+        pnp_data_->T_CL.row( i ).col( 3 ) = tv.at<double>( i );
       }
       
-      std::cout << "tv " << tv << std::endl;
-      std::cout << "rv " << rv << std::endl;
+      std::cout << "t_lc " << tv << std::endl;
+      std::cout << "r_lc " << rv << std::endl;
       
       if ( measurement_laser_ ) {
         Eigen::Matrix4d T_WL = measurement_laser_->getTfWorldSensor();
-        Eigen::Map<Eigen::Matrix4d> T_LC_e( reinterpret_cast<double *>(pnp_data_->T_LC.data));
-        measurement_image_->setTfWorldSensor( T_WL * T_LC_e );
+        Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>> T_CL_e(
+            reinterpret_cast<double *>(pnp_data_->T_CL.data));
+        std::cout << "T_CL " << T_CL_e << std::endl;
+        Eigen::Matrix4d T_LC = T_CL_e.inverse();
+        measurement_image_->setTfWorldSensor( T_WL * T_LC, true );
+        std::cout << "T_LC " << (T_WL * T_LC) << std::endl;
         updateLaser2Image();
+        updateLaser2Map();
+        drawImages();
       }
     }
   }
