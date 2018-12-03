@@ -29,6 +29,20 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_6">
         <item>
+         <widget class="QPushButton" name="zoom_in_button">
+          <property name="text">
+           <string>Zoom in</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="zoom_out_button">
+          <property name="text">
+           <string>Zoom out</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="refine_button">
           <property name="text">
            <string>Refine</string>

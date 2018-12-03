@@ -57,11 +57,14 @@
 #include <image_geometry/pinhole_camera_model.h>
 #include <boost/circular_buffer.hpp>
 #include <sensor_msgs/LaserScan.h>
+#include <geometry_msgs/TransformStamped.h>
+
 #include <tuw_measurement_utils/measurements.h>
-#include <tf/tf.h>
-#include <tf/transform_listener.h>
 #include <tuw_geometry/figure.h>
+
 #include <mutex>
+
+#include <tf2_ros/transform_listener.h>
 
 namespace rqt_image_view {
   
@@ -86,6 +89,7 @@ namespace rqt_image_view {
   protected slots:
     
     virtual void updateTopicList();
+  
   
   protected:
     
@@ -125,10 +129,18 @@ namespace rqt_image_view {
     virtual void onLeftDistanceSliderValChanged( int val );
     
     virtual void onRightDistanceSliderValChanged( int val );
+    
+    virtual void onZoomIn();
+    
+    virtual void onZoomOut();
   
   protected:
     
+    virtual void setIdentity( geometry_msgs::TransformStampedPtr tf );
+    
     virtual void drawImages();
+    
+    virtual void scaleImage( double factor );
     
     virtual void callbackImage( const sensor_msgs::Image::ConstPtr &msg );
     
@@ -141,7 +153,7 @@ namespace rqt_image_view {
     virtual void updateLaser2Map();
     
     virtual bool getStaticTF( const std::string &world_frame, const std::string &source_frame,
-                              tf::StampedTransform &_pose, bool debug );
+                              geometry_msgs::TransformStampedPtr tf, bool debug );
     
     struct PnPData {
     public:
@@ -170,8 +182,11 @@ namespace rqt_image_view {
     std::unique_ptr<tuw::ImageMeasurement> measurement_image_;
     std::vector<std::pair<cv::Point2d, cv::Scalar>> laser2image_points_colored_;
     
-    std::map<std::string, std::shared_ptr<tf::StampedTransform>> tfMap_;
+    std::map<std::string, geometry_msgs::TransformStampedPtr> tfMap_;
     std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;
+    
+    QAction *zoomInAction;
+    QAction *zoomOutAction;
     
     tuw::FigurePtr figure_local_;
     
@@ -192,10 +207,14 @@ namespace rqt_image_view {
     double restrict_left_laser_max_;
     double restrict_right_laser_max_;
     
-    tf::TransformListener listenerTF_;
+    double image_scale_factor_ = 0.80;
+    double laser_scale_factor_ = 0.80;
     
     std::mutex mutex_laser_;
     std::mutex mutex_image_;
+    
+    tf2_ros::Buffer tf_buffer_;
+    tf2_ros::TransformListener tf_listener_;
   };
   
 }

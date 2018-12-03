@@ -50,7 +50,8 @@
 namespace rqt_image_view {
   
   ImageView::ImageView()
-      : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ) {
+      : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ), tf_buffer_( ros::Duration( 100, 0 )),
+        tf_listener_( tf_buffer_ ) {
     setObjectName( "ImageView" );
   }
   
@@ -88,7 +89,10 @@ namespace rqt_image_view {
         "([a-zA-Z/][a-zA-Z0-9_/]*)?" ); //see http://www.ros.org/wiki/ROS/Concepts#Names.Valid_Names (but also accept an empty field)
     ui_.publish_click_location_topic_line_edit->setValidator( new QRegExpValidator( rx, this ));
     connect( ui_.image_frame, SIGNAL( mouseLeft( int, int )), this, SLOT( onMouseLeft( int, int )) );
+    
     connect( ui_.publish_click_location_topic_line_edit, SIGNAL( editingFinished()), this, SLOT( onPubTopicChanged()) );
+    connect( ui_.zoom_in_button, SIGNAL( pressed()), this, SLOT( onZoomIn()) );
+    connect( ui_.zoom_out_button, SIGNAL( pressed()), this, SLOT( onZoomOut()) );
     
     connect( ui_.laser_scan_checkbox, SIGNAL( toggled( bool )), this, SLOT( onLaserScanBoxToggle( bool )) );
     connect( ui_.freeze_laser_checkbox, SIGNAL( toggled( bool )), this, SLOT( onFreezeLaserBoxToggle( bool )) );
@@ -106,25 +110,26 @@ namespace rqt_image_view {
     ui_.sliderLeftLaser->setMaximum( 360 );
     ui_.sliderRightLaser->setMaximum( 360 );
     
-    ui_.sliderLeftLaser->setValue( 0 );
-    ui_.sliderRightLaser->setValue( 360 );
+    ui_.sliderLeftLaser->setValue( 360 );
+    ui_.sliderRightLaser->setValue( 0 );
     
     connect( ui_.sliderLeftLaser, SIGNAL( valueChanged( int )), this, SLOT( onLeftSliderValChanged( int )) );
     connect( ui_.sliderRightLaser, SIGNAL( valueChanged( int )), this, SLOT( onRightSliderValChanged( int )) );
     connect( ui_.sliderLeftLaserD, SIGNAL( valueChanged( int )), this, SLOT( onLeftDistanceSliderValChanged( int )) );
     connect( ui_.sliderRightLaserD, SIGNAL( valueChanged( int )), this, SLOT( onRightDistanceSliderValChanged( int )) );
     
+    
     ui_.sliderRightLaserD->setMinimum( 0 );
     ui_.sliderRightLaserD->setMinimum( 0 );
     
-    ui_.sliderLeftLaserD->setMaximum( 100 );
-    ui_.sliderRightLaserD->setMaximum( 100 );
+    ui_.sliderLeftLaserD->setMaximum( 20 );
+    ui_.sliderRightLaserD->setMaximum( 20 );
     
-    ui_.sliderLeftLaserD->setValue( 100 );
-    ui_.sliderRightLaserD->setValue( 100 );
+    ui_.sliderLeftLaserD->setValue( 20 );
+    ui_.sliderRightLaserD->setValue( 20 );
     
-    leftSplitAngle_ = -M_PI / 2.0;
-    rightSplitAngle_ = M_PI / 2.0;
+    //leftSplitAngle_ = M_PI / 2.0;
+    //rightSplitAngle_ = -M_PI / 2.0;
     
     clickedPoints_ = boost::circular_buffer<cv::Point2d>( 4 );
     
@@ -155,7 +160,7 @@ namespace rqt_image_view {
       QImage image( conversion_mat_.data, conversion_mat_.cols, conversion_mat_.rows, conversion_mat_.step[0],
                     QImage::Format_RGB888 );
       ui_.image_frame->setImage( image );
-      ui_.image_frame->setInnerFrameFixedSize( image.size());
+      ui_.image_frame->setInnerFrameFixedSize( image.size() * image_scale_factor_ );
     }
   }
   
@@ -186,6 +191,7 @@ namespace rqt_image_view {
       rightSplitAngle_ =
           ((static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaser->maximum())) * (angle_max - angle_min)) +
           angle_min;
+      std::cout << "val " << val << "angle: " << rightSplitAngle_ << std::endl;
       updateLaser2Map();
       drawImages();
     }
@@ -221,6 +227,8 @@ namespace rqt_image_view {
       leftSplitAngle_ =
           ((static_cast<double>(val) / static_cast<double>(ui_.sliderRightLaser->maximum())) *
            (angle_max - angle_min)) + angle_min;
+      std::cout << "val " << val << "angle: " << leftSplitAngle_ << std::endl;
+      updateLaser2Map();
       updateLaser2Map();
       drawImages();
     }
@@ -239,59 +247,41 @@ namespace rqt_image_view {
       restrict_right_laser_max_ *= range_max;
     }
     
-    std::cout << "rm " << restrict_right_laser_max_ << std::endl;
-    
     updateLaser2Map();
     drawImages();
   }
   
+  void ImageView::onZoomIn() {
+    image_scale_factor_ += 0.1;
+    scaleImage( image_scale_factor_ );
+  }
+  
+  void ImageView::onZoomOut() {
+    image_scale_factor_ -= 0.1;
+    scaleImage( image_scale_factor_ );
+  }
+  
+  void ImageView::scaleImage( double factor ) {
+    if ( ui_.image_frame->getImage().isNull()) {
+      return;
+    }
+    ui_.image_frame->setInnerFrameFixedSize( ui_.image_frame->getImage().size() * factor );
+  }
+  
   void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
     QString topic = ui_.topics_combo_box->currentText();
-    std::cout << "savesettings()" << std::endl;
-    qDebug( "ImageView::saveSettings() topic '%s'", topic.toStdString().c_str());
     instance_settings.setValue( "topic", topic );
     plugin_settings.setValue( "topic", topic );
-    //instance_settings.setValue( "laser_box", ui_.laser_scan_checkbox->isChecked());
   }
   
   void ImageView::restoreSettings( const qt_gui_cpp::Settings &plugin_settings,
                                    const qt_gui_cpp::Settings &instance_settings ) {
-    //bool zoom1_checked = instance_settings.value( "zoom1", false ).toBool();
-    //ui_.zoom_1_push_button->setChecked( zoom1_checked );
-    //bool dynamic_range_checked = instance_settings.value( "dynamic_range", false ).toBool();
-    //ui_.dynamic_range_check_box->setChecked( dynamic_range_checked );
-    //
-    //double max_range = instance_settings.value( "max_range", ui_.max_range_double_spin_box->value()).toDouble();
-    //ui_.max_range_double_spin_box->setValue( max_range );
-    //
-    //num_gridlines_ = instance_settings.value( "num_gridlines", ui_.num_gridlines_spin_box->value()).toInt();
-    //ui_.num_gridlines_spin_box->setValue( num_gridlines_ );
-    //
-    //QString topic = instance_settings.value( "topic", "" ).toString();
-    //// don't overwrite topic name passed as command line argument
-    //if ( !arg_topic_name.isEmpty()) {
-    //  arg_topic_name = "";
-    //} else {
-    //  //qDebug("ImageView::restoreSettings() topic '%s'", topic.toStdString().c_str());
-    //  selectTopic( topic );
-    //}
-    //
-    //bool publish_click_location = instance_settings.value( "publish_click_location", false ).toBool();
-    //ui_.publish_click_location_check_box->setChecked( publish_click_location );
-    //
-    //QString pub_topic = instance_settings.value( "mouse_pub_topic", "" ).toString();
-    //ui_.publish_click_location_topic_line_edit->setText( pub_topic );
-    //
-    //bool toolbar_hidden = instance_settings.value( "toolbar_hidden", false ).toBool();
-    //hide_toolbar_action_->setChecked( toolbar_hidden );
-    //
-    //bool smooth_image_checked = instance_settings.value( "smooth_image", false ).toBool();
-    //ui_.smooth_image_check_box->setChecked( smooth_image_checked );
-    //
-    //rotate_state_ = static_cast<RotateState>(instance_settings.value( "rotate", 0 ).toInt());
-    //if ( rotate_state_ >= ROTATE_STATE_COUNT )
-    //  rotate_state_ = ROTATE_0;
-    //syncRotateLabel();
+    QString topic = instance_settings.value( "topic", "" ).toString();
+    if ( !arg_topic_name.isEmpty()) {
+      arg_topic_name = "";
+    } else {
+      selectTopic( topic );
+    }
   }
   
   void ImageView::updateTopicList() {
@@ -519,7 +509,7 @@ namespace rqt_image_view {
         QImage image( view.data, view.cols, view.rows, view.step[0],
                       QImage::Format_RGB888 );
         ui_.laser_frame->setImage( image );
-        ui_.laser_frame->setInnerFrameFixedSize( image.size());
+        ui_.laser_frame->setInnerFrameFixedSize( image.size() * laser_scale_factor_ );
         ui_.laser_frame->setEnabled( true );
         ui_.laser_frame->setVisible( true );
       }
@@ -577,16 +567,35 @@ namespace rqt_image_view {
     return false;
   }
   
+  void ImageView::setIdentity( geometry_msgs::TransformStampedPtr tf ) {
+    auto &q = tf->transform.rotation;
+    auto &t = tf->transform.translation;
+    
+    q.x = 0.0;
+    q.y = 0.0;
+    q.z = 0.0;
+    q.w = 1.0;
+    
+    t.x = 0.0;
+    t.y = 0.0;
+    t.z = 0.0;
+  }
+  
   void ImageView::callbackLaser( const sensor_msgs::LaserScan &_laser ) {
     //@ToDo: here
-    //std::cout << "laser cb" << std::endl;
+    std::cout << "laser cb" << std::endl;
+    
+    geometry_msgs::TransformStampedPtr tf;
+    tf.reset( new geometry_msgs::TransformStamped());
+    setIdentity( tf );
+    std::cout << "get static tf" << std::endl;
+    if ( getStaticTF( "r0/base_link", "r0/laser0", tf, true )) {
+    }
+    
     if ( !freeze_laser_scan_ ) {
       laser2image_points_colored_.clear();
       
       std::lock_guard<std::mutex> lock( mutex_laser_ );
-      
-      tf::StampedTransform tf;
-      tf.setIdentity();
       
       if ( measurement_laser_ ) {
         tf = measurement_laser_->getStampedTf();
@@ -615,15 +624,19 @@ namespace rqt_image_view {
     {
       std::lock_guard<std::mutex> lock( mutex_image_ );
       
+      geometry_msgs::TransformStampedPtr tf;
+      tf.reset( new geometry_msgs::TransformStamped());
+      setIdentity( tf );
+      //if ( getStaticTF( "/r0/base_link", msg->header.frame_id.c_str(), tf, false )) {
+      //  std::cout << "success" << std::endl;
+      //}
+      
       if ( !freeze_image_ ) {
         
         try {
           // First let cv_bridge do its magic
           cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg, sensor_msgs::image_encodings::RGB8 );
           conversion_mat_ = cv_ptr->image;
-          
-          tf::StampedTransform tf;
-          tf.setIdentity();
           
           if ( measurement_image_ ) {
             tf = measurement_image_->getStampedTf();
@@ -733,17 +746,6 @@ namespace rqt_image_view {
       pnp_data_->object_points.insert( std::begin( pnp_data_->object_points ), std::begin( object_points ),
                                        std::end( object_points ));
       
-      std::cout << "Object points" << std::endl;
-      for ( cv::Point3d obj_pt : pnp_data_->object_points ) {
-        std::cout << "(" << obj_pt.x << ", " << obj_pt.y << ", " << obj_pt.z << ")" << std::endl;
-      }
-      std::cout << "Image points" << std::endl;
-      for ( cv::Point2d img_pt : pnp_data_->image_points ) {
-        std::cout << "(" << img_pt.x << ", " << img_pt.y << ")" << std::endl;
-      }
-      std::cout << "K " << pnp_data_->K << std::endl;
-      std::cout << "D " << pnp_data_->D << std::endl;
-      
       cv::solvePnP( pnp_data_->object_points,
                     pnp_data_->image_points,
                     pnp_data_->K,
@@ -757,14 +759,10 @@ namespace rqt_image_view {
         pnp_data_->T_CL.row( i ).col( 3 ) = tv.at<double>( i );
       }
       
-      std::cout << "t_lc " << tv << std::endl;
-      std::cout << "r_lc " << rv << std::endl;
-      
       if ( measurement_laser_ ) {
         Eigen::Matrix4d T_WL = measurement_laser_->getTfWorldSensor();
         Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>> T_CL_e(
             reinterpret_cast<double *>(pnp_data_->T_CL.data));
-        std::cout << "T_CL " << T_CL_e << std::endl;
         Eigen::Matrix4d T_LC = T_CL_e.inverse();
         measurement_image_->setTfWorldSensor( T_WL * T_LC, true );
         std::cout << "T_LC " << (T_WL * T_LC) << std::endl;
@@ -776,26 +774,30 @@ namespace rqt_image_view {
   }
   
   bool ImageView::getStaticTF( const std::string &world_frame, const std::string &source_frame,
-                               tf::StampedTransform &_pose, bool debug ) {
+                               geometry_msgs::TransformStampedPtr tf, bool debug ) {
     
     std::string target_frame_id = source_frame;
-    std::string source_frame_id = tf::resolve( "", world_frame );
+    std::string source_frame_id = world_frame;
     std::string key = target_frame_id + "->" + source_frame_id;
     
     if ( debug ) {
-      ROS_INFO( "tf get: %s", key.c_str());
+      std::cout << "tf get: " << key << std::endl;
     }
     
     if ( !tfMap_[key] ) {
+      
       try {
         
-        listenerTF_.lookupTransform(
-            source_frame_id, target_frame_id, ros::Time( 0 ), _pose );
-        std::shared_ptr<tf::StampedTransform> tf_ref;
-        tf_ref.reset( new tf::StampedTransform( _pose ));
-        tfMap_[key] = std::move( tf_ref );
+        geometry_msgs::TransformStamped stamped_tf = tf_buffer_.lookupTransform(
+            source_frame_id, target_frame_id, ros::Time( 0 ));
         
-      } catch (tf::TransformException ex) {
+        geometry_msgs::TransformStampedPtr tf_ref;
+        tf_ref.reset( new geometry_msgs::TransformStamped( stamped_tf ));
+        
+        tfMap_[key] = std::move( tf_ref );
+        ROS_INFO( "lookup transform success" );
+        
+      } catch (tf2::TransformException &ex) {
         
         ROS_INFO( "getStaticTF" );
         ROS_ERROR( "%s", ex.what());
@@ -803,17 +805,20 @@ namespace rqt_image_view {
         return false;
         
       }
+      
     }
     
-    _pose = *tfMap_[key];
+    tf = tfMap_[key];
     
     if ( debug ) {
       std::cout << key << std::endl;
-      std::cout << "tf get o: " << _pose.getOrigin().x() << ", " << _pose.getOrigin().y() << ", "
-                << _pose.getOrigin().z()
+      const auto &t = tf->transform.translation;
+      const auto &q = tf->transform.rotation;
+      std::cout << "tf get o: " << t.x << ", " << t.y << ", "
+                << t.z
                 << std::endl;
-      std::cout << "tf get r: " << _pose.getRotation().x() << ", " << _pose.getRotation().y() << ", "
-                << _pose.getRotation().z() << ", " << _pose.getRotation().w() << std::endl;
+      std::cout << "tf get r: " << q.x << ", " << q.y << ", "
+                << q.z << ", " << q.w << std::endl;
     }
     
     return true;
