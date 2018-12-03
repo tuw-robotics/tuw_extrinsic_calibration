@@ -54,6 +54,13 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Image topic:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QComboBox" name="topics_combo_box">
           <property name="sizeAdjustPolicy">
            <enum>QComboBox::AdjustToContents</enum>
@@ -74,6 +81,40 @@
         </item>
         <item>
          <spacer name="horizontalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_7">
+        <item>
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Laser topic:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="laser_topic_combobox"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="refresh_laser_topics_button">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_2">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -216,7 +257,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>283</height>
+        <height>266</height>
        </rect>
       </property>
       <property name="sizePolicy">
@@ -272,7 +313,7 @@
         <x>0</x>
         <y>0</y>
         <width>706</width>
-        <height>283</height>
+        <height>265</height>
        </rect>
       </property>
       <property name="sizePolicy">

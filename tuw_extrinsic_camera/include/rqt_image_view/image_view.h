@@ -89,6 +89,8 @@ namespace rqt_image_view {
   protected slots:
     
     virtual void updateTopicList();
+    
+    virtual void updateLaserTopicList();
   
   
   protected:
@@ -101,6 +103,8 @@ namespace rqt_image_view {
                                      const QList<QString> &transports );
     
     virtual void selectTopic( const QString &topic );
+    
+    virtual void selectLaserTopic( const QString &topic );
   
   protected slots:
     

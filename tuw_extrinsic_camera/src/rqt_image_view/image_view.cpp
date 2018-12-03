@@ -71,6 +71,10 @@ namespace rqt_image_view {
     ui_.refresh_topics_push_button->setIcon( QIcon::fromTheme( "view-refresh" ));
     connect( ui_.refresh_topics_push_button, SIGNAL( pressed()), this, SLOT( updateTopicList()) );
     
+    updateLaserTopicList();
+    ui_.refresh_laser_topics_button->setIcon( QIcon::fromTheme( "view-refresh" ));
+    connect( ui_.refresh_laser_topics_button, SIGNAL( pressed()), this, SLOT( updateLaserTopicList()) );
+    
     //ui_.save_as_image_push_button->setIcon( QIcon::fromTheme( "document-save-as" ));
     //connect( ui_.save_as_image_push_button, SIGNAL( pressed()), this, SLOT( saveImage()) );
     
@@ -284,6 +288,30 @@ namespace rqt_image_view {
     }
   }
   
+  void ImageView::updateLaserTopicList() {
+    QSet<QString> message_types;
+    QSet<QString> message_sub_types;
+    QList<QString> transports_unused;
+    
+    message_types.insert( "sensor_msgs/LaserScan" );
+    
+    QString selected = ui_.laser_topic_combobox->currentText();
+    
+    QList<QString> topics = getTopics( message_types, message_sub_types, transports_unused ).values();
+    topics.append( "" );
+    qSort( topics );
+    
+    ui_.laser_topic_combobox->clear();
+    
+    for ( QList<QString>::const_iterator it = topics.begin(); it != topics.end(); ++it ) {
+      QString label( *it );
+      label.replace( " ", "/" );
+      ui_.laser_topic_combobox->addItem( label, QVariant( *it ));
+    }
+    
+    selectLaserTopic( selected );
+  }
+  
   void ImageView::updateTopicList() {
     QSet<QString> message_types;
     message_types.insert( "sensor_msgs/Image" );
@@ -365,6 +393,18 @@ namespace rqt_image_view {
       }
     }
     return topics;
+  }
+  
+  void ImageView::selectLaserTopic( const QString &topic ) {
+    int index = ui_.laser_topic_combobox->findText( topic );
+    if ( index == -1 ) {
+      // add topic name to list if not yet in
+      QString label( topic );
+      label.replace( " ", "/" );
+      ui_.laser_topic_combobox->addItem( label, QVariant( topic ));
+      index = ui_.laser_topic_combobox->findText( topic );
+    }
+    ui_.laser_topic_combobox->setCurrentIndex( index );
   }
   
   void ImageView::selectTopic( const QString &topic ) {
@@ -588,8 +628,7 @@ namespace rqt_image_view {
     geometry_msgs::TransformStampedPtr tf;
     tf.reset( new geometry_msgs::TransformStamped());
     setIdentity( tf );
-    std::cout << "get static tf" << std::endl;
-    if ( getStaticTF( "r0/base_link", "r0/laser0", tf, true )) {
+    if ( getStaticTF( "r0/base_link", _laser.header.frame_id.c_str(), tf, true )) {
     }
     
     if ( !freeze_laser_scan_ ) {
