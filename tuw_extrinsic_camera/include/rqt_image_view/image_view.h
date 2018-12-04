@@ -137,6 +137,8 @@ namespace rqt_image_view {
     virtual void onZoomIn();
     
     virtual void onZoomOut();
+    
+    virtual void onUndo();
   
   protected:
     
@@ -157,7 +159,7 @@ namespace rqt_image_view {
     virtual void updateLaser2Map();
     
     virtual bool getStaticTF( const std::string &world_frame, const std::string &source_frame,
-                              geometry_msgs::TransformStampedPtr tf, bool debug );
+                              geometry_msgs::TransformStampedPtr &tf, bool debug );
     
     struct PnPData {
     public:
@@ -167,7 +169,58 @@ namespace rqt_image_view {
       std::vector<cv::Point2f> image_points;
       std::vector<cv::Point3f> object_points;
       cv::Matx33d K;
-      cv::Mat D, T_CL;
+      cv::Mat D, T_CW;
+      
+    };
+    
+    struct SliderProperties {
+    public:
+      double leftSplitAngle_ = M_PI / 2.0;
+      double rightSplitAngle_ = -M_PI / 2.0;
+      double leftMaxDist_ = 30;
+      double rightMaxDist_ = 30;
+      int ui_slider_angle_max_ = 180;
+      int ui_slider_angle_min_ = 0;
+      int ui_slider_dist_min_ = 0;
+      double ui_slider_dist_max_ = 5000;
+    
+    private:
+      std::mutex self_mutex;
+    };
+    
+    struct ImageProperties {
+    public:
+      std::vector<std::pair<cv::Point2d, cv::Scalar>> laser2image_points_colored_;
+      boost::circular_buffer<cv::Point2d> clickedPoints_;
+      cv::Mat conversion_mat_ = cv::Mat::zeros( 0, 0, CV_8U );
+      std::unique_ptr<tuw::ImageMeasurement> measurement_image_;
+      
+      bool has_image_measurement() {
+        //save according to stackoverflow...
+        return measurement_image_ != nullptr;
+      }
+      
+    };
+    
+    struct LaserProperties {
+    
+    public:
+      std::unique_ptr<tuw::LaserMeasurement> measurement_laser_;
+      tuw::FigurePtr figure_local_;
+      
+      bool has_laser_measurement() {
+        //save according to stackoverflow...
+        return measurement_laser_ != nullptr;
+      }
+      
+      bool is_figure_initialized() {
+        if ( figure_local_ ) {
+          return figure_local_->initialized();
+        } else {
+          return false;
+        }
+      }
+      
     };
     
     Ui::ImageViewWidget ui_;
@@ -178,26 +231,12 @@ namespace rqt_image_view {
     ros::Subscriber sub_camera_info_;
     ros::Subscriber sub_laser_;
     
-    boost::circular_buffer<cv::Point2d> clickedPoints_;
-    
-    cv::Mat conversion_mat_;
-    
-    std::unique_ptr<tuw::LaserMeasurement> measurement_laser_;
-    std::unique_ptr<tuw::ImageMeasurement> measurement_image_;
-    std::vector<std::pair<cv::Point2d, cv::Scalar>> laser2image_points_colored_;
-    
-    std::map<std::string, geometry_msgs::TransformStampedPtr> tfMap_;
     std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;
-    
-    QAction *zoomInAction;
-    QAction *zoomOutAction;
-    
-    tuw::FigurePtr figure_local_;
-    
-    double leftSplitAngle_;
-    double rightSplitAngle_;
   
   private:
+    SliderProperties sliders_;
+    ImageProperties image_properties_;
+    LaserProperties laser_properties_;
     
     std::unique_ptr<PnPData> pnp_data_;
     QString arg_topic_name;
@@ -211,14 +250,24 @@ namespace rqt_image_view {
     double restrict_left_laser_max_;
     double restrict_right_laser_max_;
     
-    double image_scale_factor_ = 0.80;
-    double laser_scale_factor_ = 0.80;
-    
-    std::mutex mutex_laser_;
-    std::mutex mutex_image_;
+    double image_scale_factor_ = 0.70;
+    double laser_scale_factor_ = 0.70;
     
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
+    std::map<std::string, geometry_msgs::TransformStampedPtr> tfMap_;
+    
+    std::mutex self_mutex_;
+    
+    void lock() {
+      self_mutex_.lock();
+    }
+    
+    void unlock() {
+      self_mutex_.unlock();
+    }
+    //message_filters::Subscriber<geometry_msgs::TransformStampedPtr> tf_sub_;
+    //tf2_ros::MessageFilter<geometry_msgs::TransformStampedPtr> tf_message_filter_;
   };
   
 }
