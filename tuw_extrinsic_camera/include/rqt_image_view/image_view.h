@@ -120,6 +120,8 @@ namespace rqt_image_view {
     
     virtual void onPubTopicChanged();
     
+    virtual void onBaseTFTopicChanged();
+    
     virtual void onLaserScanBoxToggle( bool val );
     
     virtual void onFreezeLaserBoxToggle( bool val );
@@ -158,6 +160,7 @@ namespace rqt_image_view {
     
     virtual void updateLaser2Map();
     
+    
     virtual bool getStaticTF( const std::string &world_frame, const std::string &source_frame,
                               geometry_msgs::TransformStampedPtr &tf, bool debug );
     
@@ -177,12 +180,15 @@ namespace rqt_image_view {
     public:
       double leftSplitAngle_ = M_PI / 2.0;
       double rightSplitAngle_ = -M_PI / 2.0;
-      double leftMaxDist_ = 30;
-      double rightMaxDist_ = 30;
       int ui_slider_angle_max_ = 180;
       int ui_slider_angle_min_ = 0;
       int ui_slider_dist_min_ = 0;
-      double ui_slider_dist_max_ = 5000;
+      int ui_slider_dist_max_ = 100;
+      double distance_step_ = 1.0;
+      double distance_adjustment_left_ = 0.0;
+      double distance_adjustment_right_ = 0.0;
+      double currentLeftRange = 10;
+      double currentRightRange = 10;
     
     private:
       std::mutex self_mutex;
@@ -230,6 +236,7 @@ namespace rqt_image_view {
     image_transport::Subscriber subscriber_;
     ros::Subscriber sub_camera_info_;
     ros::Subscriber sub_laser_;
+    ros::Publisher pub_result_;
     
     std::shared_ptr<image_geometry::PinholeCameraModel> camera_model_;
   
@@ -240,11 +247,12 @@ namespace rqt_image_view {
     
     std::unique_ptr<PnPData> pnp_data_;
     QString arg_topic_name;
+    QString publisher_topic_;
+    QString base_link_topic_;
     
     bool use_laser_scan_range_;
     bool freeze_laser_scan_;
     bool freeze_image_;
-    bool pub_topic_custom_;
     
     int num_gridlines_;
     double restrict_left_laser_max_;

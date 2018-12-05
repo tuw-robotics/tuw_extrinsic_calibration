@@ -145,14 +145,14 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QCheckBox" name="publish_click_location_check_box">
+         <widget class="QLabel" name="base_tf_label">
           <property name="text">
-           <string/>
+           <string>Base TF:</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="publish_click_location_topic_line_edit">
+         <widget class="QLineEdit" name="base_link_textfield">
           <property name="toolTip">
            <string>Click location topic (leave empty for auto-naming)</string>
           </property>
@@ -160,6 +160,33 @@
         </item>
         <item>
          <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_9">
+        <item>
+         <widget class="QLabel" name="pub_topic_label">
+          <property name="text">
+           <string>Pub topic:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="pub_topic_textfield"/>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_5">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -273,7 +300,7 @@
           <x>0</x>
           <y>0</y>
           <width>349</width>
-          <height>535</height>
+          <height>500</height>
          </rect>
         </property>
         <property name="sizePolicy">
@@ -335,7 +362,7 @@
           <x>0</x>
           <y>0</y>
           <width>349</width>
-          <height>535</height>
+          <height>500</height>
          </rect>
         </property>
         <property name="sizePolicy">

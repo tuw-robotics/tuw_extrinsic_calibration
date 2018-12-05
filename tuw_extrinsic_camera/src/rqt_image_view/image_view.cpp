@@ -86,17 +86,21 @@ namespace rqt_image_view {
       arg_topic_name = argv[0];
       selectTopic( arg_topic_name );
     }
-    pub_topic_custom_ = false;
     
     ui_.image_frame->setImage( QImage());
     ui_.laser_frame->setImage( QImage());
     
     QRegExp rx(
         "([a-zA-Z/][a-zA-Z0-9_/]*)?" ); //see http://www.ros.org/wiki/ROS/Concepts#Names.Valid_Names (but also accept an empty field)
-    ui_.publish_click_location_topic_line_edit->setValidator( new QRegExpValidator( rx, this ));
+    ui_.pub_topic_textfield->setValidator( new QRegExpValidator( rx, this ));
+    connect( ui_.pub_topic_textfield, SIGNAL( editingFinished()), this, SLOT( onPubTopicChanged()) );
+    
+    ui_.base_link_textfield->setValidator( new QRegExpValidator( rx, this ));
+    connect( ui_.base_link_textfield, SIGNAL( editingFinished()), this, SLOT( onBaseTFTopicChanged()) );
+    
     connect( ui_.image_frame, SIGNAL( mouseLeft( int, int )), this, SLOT( onMouseLeft( int, int )) );
     
-    connect( ui_.publish_click_location_topic_line_edit, SIGNAL( editingFinished()), this, SLOT( onPubTopicChanged()) );
+    //connect( ui_.publish_click_location_topic_line_edit, SIGNAL( editingFinished()), this, SLOT( onPubTopicChanged()));
     connect( ui_.zoom_in_button, SIGNAL( pressed()), this, SLOT( onZoomIn()) );
     connect( ui_.zoom_out_button, SIGNAL( pressed()), this, SLOT( onZoomOut()) );
     
@@ -206,11 +210,16 @@ namespace rqt_image_view {
   }
   
   void ImageView::onLeftDistanceSliderValChanged( int val ) {
-    restrict_left_laser_max_ = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
-    //@ToDo implement
-    // updateLaser2Map();
-    // updateLaser2Image();
-    // drawImages();
+    double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
+    sliders_.distance_adjustment_left_ = (p - 0.5) * sliders_.distance_step_;
+    
+    lock();
+    
+    updateLaser2Map();
+    updateLaser2Image();
+    drawImages();
+    
+    unlock();
   }
   
   void ImageView::onRightSliderValChanged( int val ) {
@@ -234,9 +243,16 @@ namespace rqt_image_view {
   }
   
   void ImageView::onRightDistanceSliderValChanged( int val ) {
-    // updateLaser2Map();
-    // updateLaser2Image();
-    // drawImages();
+    double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
+    sliders_.distance_adjustment_right_ = (p - 0.5) * sliders_.distance_step_;
+    
+    lock();
+    
+    updateLaser2Map();
+    updateLaser2Image();
+    drawImages();
+    
+    unlock();
   }
   
   void ImageView::onZoomIn() {
@@ -259,10 +275,18 @@ namespace rqt_image_view {
   void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
     QString topic_img = ui_.topics_combo_box->currentText();
     QString topic_laser = ui_.laser_topic_combobox->currentText();
+    QString pub_topic = ui_.pub_topic_textfield->text();
     instance_settings.setValue( "topic_image", topic_img );
     plugin_settings.setValue( "topic_image", topic_img );
+    
     instance_settings.setValue( "topic_laser", topic_laser );
     plugin_settings.setValue( "topic_laser", topic_laser );
+    
+    instance_settings.setValue( "base_link_topic", base_link_topic_ );
+    plugin_settings.setValue( "base_link_topic", base_link_topic_ );
+    
+    instance_settings.setValue( "pub_topic", publisher_topic_ );
+    plugin_settings.setValue( "pub_topic", publisher_topic_ );
   }
   
   void ImageView::restoreSettings( const qt_gui_cpp::Settings &plugin_settings,
@@ -277,6 +301,12 @@ namespace rqt_image_view {
     if ( !topic_laser.isEmpty()) {
       selectLaserTopic( topic_laser );
     }
+    
+    publisher_topic_ = instance_settings.value( "pub_topic", "" ).toString();
+    base_link_topic_ = instance_settings.value( "base_link_topic", "" ).toString();
+    
+    ui_.pub_topic_textfield->setText( publisher_topic_ );
+    ui_.base_link_textfield->setText( base_link_topic_ );
   }
   
   void ImageView::updateLaserTopicList() {
@@ -451,21 +481,21 @@ namespace rqt_image_view {
       sub_laser_ = getNodeHandle().subscribe( std::string( "/r0/laser0/scan" ), 1, &ImageView::callbackLaser, this );
     }
     
-    onMousePublish( ui_.publish_click_location_check_box->isChecked());
+    onMousePublish( true );
   }
   
   void ImageView::onMousePublish( bool checked ) {
-    std::string topicName;
-    if ( pub_topic_custom_ ) {
-      topicName = ui_.publish_click_location_topic_line_edit->text().toStdString();
-    } else {
-      if ( !subscriber_.getTopic().empty()) {
-        topicName = subscriber_.getTopic() + "_mouse_left";
-      } else {
-        topicName = "mouse_left";
-      }
-      ui_.publish_click_location_topic_line_edit->setText( QString::fromStdString( topicName ));
-    }
+    //std::string topicName;
+    //if ( pub_topic_custom_ ) {
+    //  topicName = ui_.publish_click_location_topic_line_edit->text().toStdString();
+    //} else {
+    //  if ( !subscriber_.getTopic().empty()) {
+    //    topicName = subscriber_.getTopic() + "_mouse_left";
+    //  } else {
+    //    topicName = "mouse_left";
+    //  }
+    //  ui_.publish_click_location_topic_line_edit->setText( QString::fromStdString( topicName ));
+    //}
     
     //pub_fiducial_detection_ = getNodeHandle().advertise<marker_msgs::FiducialDetection>( "/fiducials", 1000 );
   }
@@ -500,8 +530,17 @@ namespace rqt_image_view {
   }
   
   void ImageView::onPubTopicChanged() {
-    pub_topic_custom_ = !(ui_.publish_click_location_topic_line_edit->text().isEmpty());
-    onMousePublish( ui_.publish_click_location_check_box->isChecked());
+    publisher_topic_ = ui_.pub_topic_textfield->text();
+    pub_result_ = getNodeHandle().advertise<geometry_msgs::TransformStamped>( publisher_topic_.toStdString(), 1000 );
+  }
+  
+  void ImageView::onBaseTFTopicChanged() {
+    if ( !ui_.base_link_textfield->text().isEmpty()) {
+      base_link_topic_ = ui_.base_link_textfield->text();
+      if ( base_link_topic_[0] == '/' ) {
+        base_link_topic_ = base_link_topic_.right( base_link_topic_.size() - 1 );
+      }
+    }
   }
   
   void ImageView::updateLaser2Map() {
@@ -511,8 +550,9 @@ namespace rqt_image_view {
       laser_properties_.figure_local_->clear();
       
       bool first_hit = false;
-      double left_range = 100;
-      double right_range = 100;
+      
+      sliders_.currentLeftRange = 100;
+      sliders_.currentRightRange = 100;
       
       for ( std::vector<tuw::Contour::Beam>::iterator it_l = laser_properties_.measurement_laser_->begin();
             it_l != laser_properties_.measurement_laser_->end();
@@ -521,9 +561,9 @@ namespace rqt_image_view {
         if ( it_l->angle < sliders_.leftSplitAngle_ && it_l->angle > sliders_.rightSplitAngle_ ) {
           if ( !first_hit ) {
             first_hit = true;
-            right_range = it_l->range;
+            sliders_.currentRightRange = it_l->range;
           } else {
-            left_range = it_l->range;
+            sliders_.currentLeftRange = it_l->range;
           }
           laser_properties_.figure_local_->circle( it_l->end_point, 2, laser_properties_.figure_local_->green );
           it_l->set_valid( true );
@@ -533,12 +573,15 @@ namespace rqt_image_view {
         }
       }
       
-      double c_left = cos( sliders_.leftSplitAngle_ ) * left_range;
-      double s_left = sin( sliders_.leftSplitAngle_ ) * left_range;
-      auto pleft = tuw::Point2D( c_left, s_left );
-      double c_right = cos( sliders_.rightSplitAngle_ ) * right_range;
-      double s_right = sin( sliders_.rightSplitAngle_ ) * right_range;
-      auto pright = tuw::Point2D( c_right, s_right );
+      sliders_.currentLeftRange += sliders_.distance_adjustment_left_;
+      sliders_.currentRightRange += sliders_.distance_adjustment_right_;
+      
+      double coss = cos( sliders_.leftSplitAngle_ ) * sliders_.currentLeftRange;
+      double sinn = sin( sliders_.leftSplitAngle_ ) * sliders_.currentLeftRange;
+      auto pleft = tuw::Point2D( coss, sinn );
+      coss = cos( sliders_.rightSplitAngle_ ) * sliders_.currentRightRange;
+      sinn = sin( sliders_.rightSplitAngle_ ) * sliders_.currentRightRange;
+      auto pright = tuw::Point2D( coss, sinn );
       
       laser_properties_.figure_local_->line( tuw::Point2D( 0, 0 ), pleft, laser_properties_.figure_local_->blue );
       laser_properties_.figure_local_->line( tuw::Point2D( 0, 0 ), pright, laser_properties_.figure_local_->blue );
@@ -635,7 +678,7 @@ namespace rqt_image_view {
     tf_ptr.reset( new geometry_msgs::TransformStamped());
     setIdentity( tf_ptr );
     
-    if ( getStaticTF( "r0/base_link", _laser.header.frame_id.c_str(), tf_ptr, false )) {
+    if ( getStaticTF( base_link_topic_.toStdString(), _laser.header.frame_id.c_str(), tf_ptr, false )) {
       if ( laser_properties_.has_laser_measurement()) {
         laser_properties_.measurement_laser_->setTfWorldSensor( tf_ptr );
       }
