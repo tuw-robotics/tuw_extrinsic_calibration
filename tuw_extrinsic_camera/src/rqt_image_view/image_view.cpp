@@ -207,13 +207,15 @@ namespace rqt_image_view {
       drawImages();
     }
     unlock();
+    
+    ui_.sliderLeftLaserD->setValue( ui_.sliderLeftLaserD->maximum() * 0.5 );
   }
   
   void ImageView::onLeftDistanceSliderValChanged( int val ) {
+    lock();
+    
     double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
     sliders_.distance_adjustment_left_ = (p - 0.5) * sliders_.distance_step_;
-    
-    lock();
     
     updateLaser2Map();
     updateLaser2Image();
@@ -224,6 +226,7 @@ namespace rqt_image_view {
   
   void ImageView::onRightSliderValChanged( int val ) {
     lock();
+    
     if ( laser_properties_.has_laser_measurement()) {
       double angle_min = 0, angle_max = 1;
       {
@@ -240,13 +243,14 @@ namespace rqt_image_view {
       drawImages();
     }
     unlock();
+    
+    ui_.sliderRightLaserD->setValue( ui_.sliderRightLaserD->maximum() * 0.5 );
   }
   
   void ImageView::onRightDistanceSliderValChanged( int val ) {
+    lock();
     double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
     sliders_.distance_adjustment_right_ = (p - 0.5) * sliders_.distance_step_;
-    
-    lock();
     
     updateLaser2Map();
     updateLaser2Image();
@@ -584,7 +588,9 @@ namespace rqt_image_view {
       auto pright = tuw::Point2D( coss, sinn );
       
       laser_properties_.figure_local_->line( tuw::Point2D( 0, 0 ), pleft, laser_properties_.figure_local_->blue );
+      laser_properties_.figure_local_->circle( pleft, 2, laser_properties_.figure_local_->blue, 2 );
       laser_properties_.figure_local_->line( tuw::Point2D( 0, 0 ), pright, laser_properties_.figure_local_->blue );
+      laser_properties_.figure_local_->circle( pright, 2, laser_properties_.figure_local_->blue, 2 );
       
       cv::Mat view = laser_properties_.figure_local_->view();
       //cv::imshow( "view", view );
@@ -606,6 +612,9 @@ namespace rqt_image_view {
     ui_.laser_scan_checkbox->setChecked( false );
     lock();
     image_properties_.clickedPoints_.clear();
+    
+    updateLaser2Image();
+    drawImages();
     unlock();
   }
   
@@ -767,6 +776,8 @@ namespace rqt_image_view {
       }
     }
     
+    updateLaser2Image();
+    updateLaser2Map();
     drawImages();
     unlock();
   }
@@ -793,9 +804,24 @@ namespace rqt_image_view {
                                       return false;
                                     } );
         laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
-        //@ToDo: check if this is correct!
-        leftMostPnt = Eigen::Vector4d( laser_beams.back().end_point.x(), laser_beams.back().end_point.y(), 0, 1 );
-        rightMostPnt = Eigen::Vector4d( laser_beams.front().end_point.x(), laser_beams.front().end_point.y(), 0, 1 );
+        
+        if ( fabs( sliders_.distance_adjustment_left_ ) < std::numeric_limits<double>::epsilon()) {
+          leftMostPnt = Eigen::Vector4d( laser_beams.back().end_point.x(), laser_beams.back().end_point.y(), 0, 1 );
+        } else {
+          auto &l_meas = laser_beams.back();
+          double c_mod = cos( l_meas.angle ) * (l_meas.range + sliders_.distance_adjustment_right_);
+          double s_mod = sin( l_meas.angle ) * (l_meas.range + sliders_.distance_adjustment_right_);
+          leftMostPnt = Eigen::Vector4d( c_mod, s_mod, 0, 1 );
+        }
+        
+        if ( fabs( sliders_.distance_adjustment_right_ ) < std::numeric_limits<double>::epsilon()) {
+          rightMostPnt = Eigen::Vector4d( laser_beams.front().end_point.x(), laser_beams.front().end_point.y(), 0, 1 );
+        } else {
+          auto &r_meas = laser_beams.front();
+          double c_mod = cos( r_meas.angle ) * (r_meas.range + sliders_.distance_adjustment_right_);
+          double s_mod = sin( r_meas.angle ) * (r_meas.range + sliders_.distance_adjustment_right_);
+          rightMostPnt = Eigen::Vector4d( c_mod, s_mod, 0, 1 );
+        }
         T_WL = laser_properties_.measurement_laser_->getTfWorldSensor();
       }
       
