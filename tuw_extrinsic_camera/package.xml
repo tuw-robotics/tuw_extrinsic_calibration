@@ -1,44 +1,37 @@
 <package>
-    <name>rqt_image_view</name>
-    <version>0.4.13</version>
-    <description>rqt_image_view provides a GUI plugin for displaying images using image_transport.</description>
-    <maintainer email="dthomas@osrfoundation.org">Dirk Thomas</maintainer>
-    <maintainer email="ablasdel@gmail.com">Aaron Blasdel</maintainer>
+  <name>tuw_extrinsic_camera</name>
+  <version>0.4.13</version>
+  <description>rqt_image_view provides a GUI plugin for displaying images using image_transport.</description>
+  <maintainer email="felix.koenig@protonmail.com">Dirk Thomas</maintainer>
 
-    <license>BSD</license>
+  <license>BSD</license>
 
-    <url type="website">http://wiki.ros.org/rqt_image_view</url>
-    <url type="repository">https://github.com/ros-visualization/rqt_image_view</url>
-    <url type="bugtracker">https://github.com/ros-visualization/rqt_image_view/issues</url>
+  <buildtool_depend>catkin</buildtool_depend>
 
-    <author>Dirk Thomas</author>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>qtbase5-dev</build_depend>
+  <build_depend>rqt_gui</build_depend>
+  <build_depend>rqt_gui_cpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>image_geometry</build_depend>
+  <build_depend>tuw_geometry</build_depend>
+  <build_depend>tuw_measurement_utils</build_depend>
+  <build_depend>marker_msgs</build_depend>
 
-    <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>image_transport</run_depend>
+  <run_depend>rqt_gui</run_depend>
+  <run_depend>rqt_gui_cpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>image_geometry</run_depend>
+  <run_depend>tuw_measurement_utils</run_depend>
+  <run_depend>tuw_geometry</run_depend>
+  <run_depend>marker_msgs</run_depend>
 
-    <build_depend>cv_bridge</build_depend>
-    <build_depend>geometry_msgs</build_depend>
-    <build_depend>image_transport</build_depend>
-    <build_depend>qtbase5-dev</build_depend>
-    <build_depend>rqt_gui</build_depend>
-    <build_depend>rqt_gui_cpp</build_depend>
-    <build_depend>sensor_msgs</build_depend>
-    <build_depend>image_geometry</build_depend>
-    <build_depend>tuw_geometry</build_depend>
-    <build_depend>tuw_measurement_utils</build_depend>
-    <build_depend>marker_msgs</build_depend>
-
-    <run_depend>cv_bridge</run_depend>
-    <run_depend>geometry_msgs</run_depend>
-    <run_depend>image_transport</run_depend>
-    <run_depend>rqt_gui</run_depend>
-    <run_depend>rqt_gui_cpp</run_depend>
-    <run_depend>sensor_msgs</run_depend>
-    <run_depend>image_geometry</run_depend>
-    <run_depend>tuw_measurement_utils</run_depend>
-    <run_depend>tuw_geometry</run_depend>
-    <run_depend>marker_msgs</run_depend>
-
-    <export>
-        <rqt_gui plugin="${prefix}/plugin.xml"/>
-    </export>
+  <export>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
 </package>

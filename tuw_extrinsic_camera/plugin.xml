@@ -1,5 +1,6 @@
-<library path="lib/librqt_image_view">
-  <class name="rqt_image_view/ImageView" type="rqt_image_view::ImageView" base_class_type="rqt_gui_cpp::Plugin">
+<library path="lib/libtuw_extrinsic_camera">
+  <class name="tuw_extrinsic_camera/ImageView" type="tuw_extrinsic_camera::ImageView"
+         base_class_type="rqt_gui_cpp::Plugin">
     <description>
       A GUI plugin to view a sensor_msgs/Image topic.
     </description>
@@ -9,7 +10,7 @@
         <icon type="theme">folder</icon>
         <statustip>Plugins related to visualization.</statustip>
       </group>
-      <label>Image View</label>
+      <label>Extrinsic Camera Calibration</label>
       <icon type="theme">image-x-generic</icon>
       <statustip>A GUI plugin for viewing sensor_msgs/Image topics.</statustip>
     </qtgui>

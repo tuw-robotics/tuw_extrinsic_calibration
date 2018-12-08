@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>ImageViewWidget</class>
+  <widget class="QWidget" name="ImageViewWidget">
+    <property name="enabled">
+      <bool>true</bool>
+    </property>
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>724</width>
+        <height>771</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Image View</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+        <widget class="QWidget" name="toolbar_widget" native="true">
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_6">
+                <item>
+                  <widget class="QPushButton" name="zoom_in_button">
+                    <property name="text">
+                      <string>Zoom in</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="zoom_out_button">
+                    <property name="text">
+                      <string>Zoom out</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="refine_button">
+                    <property name="text">
+                      <string>Refine</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="undo_button">
+                    <property name="text">
+                      <string>Undo latest</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <spacer name="horizontalSpacer_4">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_3">
+                <item>
+                  <widget class="QLabel" name="label">
+                    <property name="text">
+                      <string>Image topic:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QComboBox" name="topics_combo_box">
+                    <property name="sizeAdjustPolicy">
+                      <enum>QComboBox::AdjustToContents</enum>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="refresh_topics_push_button">
+                    <property name="toolTip">
+                      <string>Refresh topics</string>
+                    </property>
+                    <property name="icon">
+                      <iconset theme="view-refresh">
+                        <normaloff/>
+                      </iconset>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <spacer name="horizontalSpacer_3">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_7">
+                <item>
+                  <widget class="QLabel" name="label_2">
+                    <property name="text">
+                      <string>Laser topic:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QComboBox" name="laser_topic_combobox"/>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="refresh_laser_topics_button">
+                    <property name="text">
+                      <string/>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <spacer name="horizontalSpacer_2">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout">
+                <item>
+                  <widget class="QLabel" name="base_tf_label">
+                    <property name="text">
+                      <string>Base TF:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QLineEdit" name="base_link_textfield">
+                    <property name="toolTip">
+                      <string>Click location topic (leave empty for auto-naming)</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <spacer name="horizontalSpacer">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_9">
+                <item>
+                  <widget class="QLabel" name="pub_topic_label">
+                    <property name="text">
+                      <string>Pub topic:</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QLineEdit" name="pub_topic_textfield"/>
+                </item>
+                <item>
+                  <spacer name="horizontalSpacer_5">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+            <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_2">
+                <item>
+                  <layout class="QVBoxLayout" name="verticalLayout_3">
+                    <item>
+                      <widget class="QSlider" name="sliderLeftLaser">
+                        <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                        </property>
+                      </widget>
+                    </item>
+                    <item>
+                      <widget class="QSlider" name="sliderLeftLaserD">
+                        <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                        </property>
+                      </widget>
+                    </item>
+                  </layout>
+                </item>
+                <item>
+                  <layout class="QVBoxLayout" name="verticalLayout_4">
+                    <item>
+                      <widget class="QSlider" name="sliderRightLaser">
+                        <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                        </property>
+                      </widget>
+                    </item>
+                    <item>
+                      <widget class="QSlider" name="sliderRightLaserD">
+                        <property name="orientation">
+                          <enum>Qt::Horizontal</enum>
+                        </property>
+                      </widget>
+                    </item>
+                  </layout>
+                </item>
+                <item>
+                  <widget class="QCheckBox" name="laser_scan_checkbox">
+                    <property name="text">
+                      <string>Use range (green)</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QCheckBox" name="freeze_laser_checkbox">
+                    <property name="text">
+                      <string>Freeze laser</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QCheckBox" name="freeze_image_checkbox">
+                    <property name="text">
+                      <string>Freeze image</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <widget class="QPushButton" name="publisher_button">
+                    <property name="text">
+                      <string>Publish</string>
+                    </property>
+                  </widget>
+                </item>
+                <item>
+                  <spacer name="spacer">
+                    <property name="orientation">
+                      <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                      <size>
+                        <width>40</width>
+                        <height>20</height>
+                      </size>
+                    </property>
+                  </spacer>
+                </item>
+              </layout>
+            </item>
+          </layout>
+        </widget>
+      </item>
+      <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_8">
+          <item>
+            <widget class="QScrollArea" name="scrollArea">
+              <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+              </property>
+              <property name="widgetResizable">
+                <bool>true</bool>
+              </property>
+              <widget class="QWidget" name="scrollAreaWidgetContents">
+                <property name="geometry">
+                  <rect>
+                    <x>0</x>
+                    <y>0</y>
+                    <width>349</width>
+                    <height>500</height>
+                  </rect>
+                </property>
+                <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                  </sizepolicy>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_4">
+                  <property name="margin">
+                    <number>1</number>
+                  </property>
+                  <item>
+                    <widget class="tuw_extrinsic_camera::RatioLayoutedFrame" name="image_frame">
+                      <property name="sizePolicy">
+                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                        </sizepolicy>
+                      </property>
+                      <property name="minimumSize">
+                        <size>
+                          <width>80</width>
+                          <height>60</height>
+                        </size>
+                      </property>
+                      <property name="maximumSize">
+                        <size>
+                          <width>1024</width>
+                          <height>786</height>
+                        </size>
+                      </property>
+                      <property name="contextMenuPolicy">
+                        <enum>Qt::ActionsContextMenu</enum>
+                      </property>
+                      <property name="frameShape">
+                        <enum>QFrame::NoFrame</enum>
+                      </property>
+                      <property name="lineWidth">
+                        <number>1</number>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </widget>
+            </widget>
+          </item>
+          <item>
+            <widget class="QScrollArea" name="scrollArea_2">
+              <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+              </property>
+              <property name="widgetResizable">
+                <bool>true</bool>
+              </property>
+              <widget class="QWidget" name="scrollAreaWidgetContents_2">
+                <property name="geometry">
+                  <rect>
+                    <x>0</x>
+                    <y>0</y>
+                    <width>349</width>
+                    <height>500</height>
+                  </rect>
+                </property>
+                <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                  </sizepolicy>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_5">
+                  <property name="margin">
+                    <number>1</number>
+                  </property>
+                  <item>
+                    <widget class="tuw_extrinsic_camera::RatioLayoutedFrame" name="laser_frame">
+                      <property name="sizePolicy">
+                        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                        </sizepolicy>
+                      </property>
+                      <property name="minimumSize">
+                        <size>
+                          <width>80</width>
+                          <height>60</height>
+                        </size>
+                      </property>
+                      <property name="contextMenuPolicy">
+                        <enum>Qt::ActionsContextMenu</enum>
+                      </property>
+                      <property name="frameShape">
+                        <enum>QFrame::NoFrame</enum>
+                      </property>
+                      <property name="lineWidth">
+                        <number>1</number>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </widget>
+            </widget>
+          </item>
+        </layout>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>tuw_extrinsic_camera::RatioLayoutedFrame</class>
+      <extends>QFrame</extends>
+      <header>tuw_extrinsic_camera/ratio_layouted_frame.h</header>
+      <container>1</container>
+    </customwidget>
+  </customwidgets>
+  <resources/>
+  <connections/>
+</ui>

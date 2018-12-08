@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-project(rqt_image_view)
+project(tuw_extrinsic_camera)
 # Load catkin and all dependencies required for this package
 find_package(catkin REQUIRED COMPONENTS
         rqt_gui
@@ -23,19 +23,17 @@ else ()
 endif ()
 
 set(rqt_image_view_SRCS
-        src/rqt_image_view/image_view.cpp
-        src/rqt_image_view/ratio_layouted_frame.cpp
-        src/rqt_image_view/range_slider.cpp
+        src/tuw_extrinsic_camera/image_view.cpp
+        src/tuw_extrinsic_camera/ratio_layouted_frame.cpp
         )
 
 set(rqt_image_view_HDRS
-        include/rqt_image_view/image_view.h
-        include/rqt_image_view/ratio_layouted_frame.h
-        include/rqt_image_view/range_slider.h
+        include/tuw_extrinsic_camera/image_view.h
+        include/tuw_extrinsic_camera/ratio_layouted_frame.h
         )
 
 set(rqt_image_view_UIS
-        src/rqt_image_view/image_view.ui
+        src/tuw_extrinsic_camera/image_view.ui
         )
 
 set(rqt_image_view_INCLUDE_DIRECTORIES
@@ -101,7 +99,7 @@ install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
         )
 
-catkin_install_python(PROGRAMS scripts/rqt_image_view
+catkin_install_python(PROGRAMS scripts/tuw_extrinsic_camera
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
         )
 
