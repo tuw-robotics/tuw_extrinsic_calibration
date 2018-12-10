@@ -20,8 +20,7 @@ First, start rqt_gui.
 Second, select the plugin via Visualization->Extrinsic Camera Calibration.
 Play your bag file or start a live ros session with the robot.
 
-After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen in the Figure below. 
-![GUI View](https://github.com/tuw-robotics/tuw_extrinsic_calibration/tree/master/tuw_extrinsic_camera/images/gui_0.png)
+After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen ![here](https://github.com/tuw-robotics/tuw_extrinsic_calibration/tree/master/tuw_extrinsic_camera/images/gui_0.png).
 
 The workflow for using this plugin is as follows.
 
@@ -32,4 +31,6 @@ The workflow for using this plugin is as follows.
 4. If needed, click refine and repeat steps 1-3.
 
 In order to select the valid laser scan range lying on the object, the upper sliders can be used to restrict the angular range. The lower sliders can be used to select the distance. If the distance slider is modified the algorithm will use this corrected distance for pose estimation. This is useful when dealing with unrelieable laser scan readings.
-For a live setting it is recommended to tick the freeze image and freeze laser checkboxes, as the images are updated with every incoming message. This allows for a more finegrained selection. Note that rosbag play allows pausing by pressing space, therefore the freeze buttons may not been used here.  
+For a live setting it is recommended to tick the freeze image and freeze laser checkboxes, as the images are updated with every incoming message. This allows for a more finegrained selection. 
+
+![second](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_0.png)
