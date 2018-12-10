@@ -20,7 +20,7 @@ First, start rqt_gui.
 Second, select the plugin via Visualization->Extrinsic Camera Calibration.
 Play your bag file or start a live ros session with the robot.
 
-After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen ![here](https://github.com/tuw-robotics/tuw_extrinsic_calibration/tree/master/tuw_extrinsic_camera/images/gui_0.png).
+After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen ![here](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_0.png).
 
 The workflow for using this plugin is as follows.
 
