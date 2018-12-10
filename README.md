@@ -35,7 +35,7 @@ In order to select the valid laser scan range lying on the object, the upper sli
 For a live setting it is recommended to tick the freeze image and freeze laser checkboxes, as the images are updated with every incoming message. This allows for a more finegrained selection. 
 
 After step 2 the GUI will look like the image below (note that you can also zoom into the image). At the current moment you must (!) specify the points along the object in a clockwise fashion starting with the bottom left corner. The assumption is that the object is of rectangular shape and its dimensions are currently hardcoded. This is still work in progress  
-![second](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_1.png).
+![second](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_1.png).
 
 After the estimation, the laser scan will be projected into the image, giving the user a feeling of the estimations accuracy.
-![third](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_2.png)
+![third](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_2.png)
