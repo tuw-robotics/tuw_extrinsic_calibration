@@ -1,8 +1,8 @@
-#tuw\_extricsic\_calibration
+# tuw_extricsic_calibration
 
 This software features a tool for semi-automatic extrinsic camera calibration implemented as an rviz plugin, designed for robots with a mounted camera and laser scan. It is therefore expected that the robot is equipped with a laser scanner which must be already calibrated.
 
-##Details
+## Details
 
 The calibration plugin allows to connect a known tf, for instance /base_link, to the unknown camera tf that is estimated.
 Internally, the pnp algorithm is used to determine the position of the camera with respect to the base frame. 
@@ -11,7 +11,7 @@ In order to solve pnp, reference points in the image must be given, which is don
 the corresponding position in base link coordinates of the image points is inferred from the laser scan, mounted on the robot. 
 Then the algorithm computes the TF. These steps can be repeated if a more precise estimation with more measurements are needed.
 
-##Usage tutorial
+## Usage tutorial
 
 First, start rqt_gui.
 
