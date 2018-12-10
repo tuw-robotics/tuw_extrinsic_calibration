@@ -151,6 +151,12 @@ namespace tuw_extrinsic_camera {
       if (pnp_data_->image_points.size() >= 4) {
         pnp_data_->image_points.resize(pnp_data_->image_points.size() - 4);
         pnp_data_->object_points.resize(pnp_data_->object_points.size() - 4);
+        if (pnp_data_->image_points.size()) {
+          onPublisherButton();
+          updateLaser2Image();
+          updateLaser2Map();
+          drawImages();
+        }
       }
     }
     unlock();
@@ -551,6 +557,8 @@ namespace tuw_extrinsic_camera {
     if (laser_properties_.has_laser_measurement() && laser_properties_.is_figure_initialized()) {
 
       laser_properties_.figure_local_->clear();
+      laser_properties_.figure_local_->init(700, 700, -1, laser_properties_.measurement_laser_->max_reading_ + 1, -5, 5,
+                                            M_PI / 2.0, 1, 1);
 
       bool first_hit = false;
 
@@ -889,6 +897,8 @@ namespace tuw_extrinsic_camera {
       {
         image_properties_.measurement_image_->setTfWorldSensor(T_WC, true);
       }
+
+      std::cout << "T_WC " << std::endl << T_WC << std::endl;
 
       updateLaser2Image();
       updateLaser2Map();

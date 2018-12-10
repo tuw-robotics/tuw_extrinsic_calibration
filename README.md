@@ -1,6 +1,6 @@
 # tuw_extrinsic_calibration
 
-This software features a tool for semi-automatic extrinsic camera calibration implemented as an rviz plugin, designed for robots with a mounted camera and laser scan. It is therefore expected that the robot is equipped with a laser scanner which must be already calibrated.
+This software features a tool for semi-automatic extrinsic camera calibration implemented as an rviz plugin, designed for robots with a mounted camera and laser scan. It is therefore expected that the robot is equipped with a laser scanner which must be already calibrated. In addition, it assumes that rectangular objects such as doors are visible within the image.
 
 ## Details
 
@@ -39,3 +39,4 @@ After step 2 the GUI will look like the image below (note that you can also zoom
 
 After the estimation, the laser scan will be projected into the image, giving the user a feeling of the estimations accuracy.
 ![third](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_2.png)
+The calibration depicted here is not good enough (see projected laserscan on the bottom right), since a planar object is used. However, one should then refine the estimation by driving to a different spot and selecting the same object again (steps 1-3) or selecting a different object in view.

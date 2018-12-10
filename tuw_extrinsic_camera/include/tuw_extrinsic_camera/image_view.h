@@ -180,7 +180,7 @@ namespace tuw_extrinsic_camera {
     public:
       double leftSplitAngle_ = M_PI / 2.0;
       double rightSplitAngle_ = -M_PI / 2.0;
-      int ui_slider_angle_max_ = 180;
+      int ui_slider_angle_max_ = 1800;
       int ui_slider_angle_min_ = 0;
       int ui_slider_dist_min_ = 0;
       int ui_slider_dist_max_ = 100;
