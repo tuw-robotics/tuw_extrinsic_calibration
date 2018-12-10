@@ -20,7 +20,8 @@ First, start rqt_gui.
 Second, select the plugin via Visualization->Extrinsic Camera Calibration.
 Play your bag file or start a live ros session with the robot.
 
-After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen ![here](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_0.png).
+After the topics arrived at least once, they can be selected in the combo box. For the base frame any TF can be selected (that has a link to the laser TF). Afterwards, the camera image along with the laser scan are displayed as seen in the following image.
+![GUI intro view](https://github.com/tuw-robotics/tuw_extrinsic_calibration/raw/master/tuw_extrinsic_camera/images/gui_0.png).
 
 The workflow for using this plugin is as follows.
 
@@ -33,4 +34,8 @@ The workflow for using this plugin is as follows.
 In order to select the valid laser scan range lying on the object, the upper sliders can be used to restrict the angular range. The lower sliders can be used to select the distance. If the distance slider is modified the algorithm will use this corrected distance for pose estimation. This is useful when dealing with unrelieable laser scan readings.
 For a live setting it is recommended to tick the freeze image and freeze laser checkboxes, as the images are updated with every incoming message. This allows for a more finegrained selection. 
 
-![second](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_0.png)
+After step 2 the GUI will look like the image below (note that you can also zoom into the image). At the current moment you must (!) specify the points along the object in a clockwise fashion starting with the bottom left corner. The assumption is that the object is of rectangular shape and its dimensions are currently hardcoded. This is still work in progress  
+![second](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_1.png).
+
+After the estimation, the laser scan will be projected into the image, giving the user a feeling of the estimations accuracy.
+![third](https://github.com/tuw-robotics/tuw_extrinsic_calibration/master/tuw_extrinsic_camera/images/gui_2.png)
