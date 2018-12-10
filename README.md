@@ -1,4 +1,4 @@
-# tuw_extricsic_calibration
+# tuw_extrinsic_calibration
 
 This software features a tool for semi-automatic extrinsic camera calibration implemented as an rviz plugin, designed for robots with a mounted camera and laser scan. It is therefore expected that the robot is equipped with a laser scanner which must be already calibrated.
 
