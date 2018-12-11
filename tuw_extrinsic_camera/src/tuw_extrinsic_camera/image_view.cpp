@@ -148,19 +148,28 @@ namespace tuw_extrinsic_camera {
   
   void ImageView::onUndo() {
     lock();
+    bool update_draw = false;
     if ( pnp_data_ ) {
       if ( pnp_data_->image_points.size() >= 4 ) {
         pnp_data_->image_points.resize( pnp_data_->image_points.size() - 4 );
         pnp_data_->object_points.resize( pnp_data_->object_points.size() - 4 );
         if ( pnp_data_->image_points.size()) {
-          onPublisherButton();
-          updateLaser2Image();
-          updateLaser2Map();
-          drawImages();
+          update_draw = true;
         }
       }
     }
     unlock();
+    if ( update_draw ) {
+      onPublisherButton();
+      
+      lock();
+      
+      updateLaser2Image();
+      updateLaser2Map();
+      drawImages();
+      
+      unlock();
+    }
   }
   
   void ImageView::drawImages() {
@@ -907,7 +916,14 @@ namespace tuw_extrinsic_camera {
         image_properties_.measurement_image_->setTfWorldSensor( T_WC, true );
       }
       
-      std::cout << "T_WC " << std::endl << T_WC << std::endl;
+      std::cout << "======================\n";
+      std::cout << "    TF estimated\n\n";
+      std::cout << T_WC << "\n";
+      std::cout << "(x y z) (yaw pitch roll)\n";
+      Eigen::Vector3d ypr = T_WC.topLeftCorner<3, 3>().eulerAngles( 2, 1, 0 );
+      std::cout << T_WC( 0, 3 ) << " " << T_WC( 1, 3 ) << " " << T_WC( 2, 3 ) << " " << ypr[0] << " " << ypr[1] << " "
+                << ypr[2] << "\n";
+      std::cout << "======================\n";
       
       updateLaser2Image();
       updateLaser2Map();
