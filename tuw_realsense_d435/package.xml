@@ -1,0 +1,23 @@
+<package>
+  <name>tuw_extrinsic_camera</name>
+  <version>0.4.13</version>
+  <description>rqt_image_view provides a GUI plugin for displaying images using image_transport.</description>
+  <maintainer email="felix.koenig@protonmail.com">Dirk Thomas</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>tuw_geometry</build_depend>
+
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>tuw_geometry</run_depend>
+
+  <export>
+  </export>
+</package>
