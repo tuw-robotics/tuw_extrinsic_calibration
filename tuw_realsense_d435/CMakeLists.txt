@@ -1,44 +1,44 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-project(tuw_extrinsic_camera)
+project(tuw_realsense_d435)
 # Load catkin and all dependencies required for this package
 find_package(catkin REQUIRED COMPONENTS
+        roscpp
         sensor_msgs
         geometry_msgs
         tuw_measurement_utils
+        tf
+        tf_conversions
+        cmake_modules
         )
 
-find_package(OpenCV REQUIRED)
-
-if ("${qt_gui_cpp_USE_QT_MAJOR_VERSION} " STREQUAL "5 ")
-    find_package(Qt5Widgets REQUIRED)
-else ()
-    find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
-    include(${QT_USE_FILE})
-endif ()
+find_package(TinyXML REQUIRED)
 
 catkin_package(
-        INCLUDE_DIRS ${rqt_image_view_INCLUDE_DIRECTORIES}
-        LIBRARIES ${PROJECT_NAME}
-        CATKIN_DEPENDS
-        sensor_msgs
-        geometry_msgs
-        image_geometry
-        )
-
-catkin_python_setup()
+        #        CATKIN_DEPENDS
+        #        roscpp
+        #        sensor_msgs
+        #        geometry_msgs
+        #        tf
+        #        tf_conversions
+)
 
 
-install(TARGETS ${PROJECT_NAME}
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-        )
+include_directories(
+        include
+        ${catkin_INCLUDE_DIRS}
+        ${TinyXML_INCLUDE_DIRS}
+)
+
+
+add_executable(realsense_transforms_node
+        src/realsense_transforms_node.cpp)
+
+target_link_libraries(realsense_transforms_node
+        ${catkin_LIBRARIES}
+        ${TinyXML_LIBRARIES})
 
 # catkin_install_python(PROGRAMS scripts/tuw_extrinsic_camera
 #         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 #         )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-        )
