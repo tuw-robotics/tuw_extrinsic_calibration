@@ -46,20 +46,26 @@
 #include <marker_msgs/FiducialDetection.h>
 #include <opencv2/highgui.hpp>
 #include <iterator>
+#include <iostream>
+#include <fstream>
 
-namespace tuw_extrinsic_camera {
+namespace tuw_extrinsic_camera
+{
   
   ImageView::ImageView()
       : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ), tf_buffer_( ros::Duration( 100, 0 )),
-        tf_listener_( tf_buffer_ ) {
+        tf_listener_( tf_buffer_ )
+  {
     setObjectName( "ImageView" );
   }
   
-  void ImageView::initPlugin( qt_gui_cpp::PluginContext &context ) {
+  void ImageView::initPlugin( qt_gui_cpp::PluginContext &context )
+  {
     widget_ = new QWidget();
     ui_.setupUi( widget_ );
     
-    if ( context.serialNumber() > 1 ) {
+    if ( context.serialNumber() > 1 )
+    {
       widget_->setWindowTitle( widget_->windowTitle() + " (" + QString::number( context.serialNumber()) + ")" );
     }
     context.addWidget( widget_ );
@@ -83,7 +89,8 @@ namespace tuw_extrinsic_camera {
     
     // set topic name if passed in as argument
     const QStringList &argv = context.argv();
-    if ( !argv.empty()) {
+    if ( !argv.empty())
+    {
       arg_topic_name = argv[0];
       selectTopic( arg_topic_name );
     }
@@ -146,20 +153,23 @@ namespace tuw_extrinsic_camera {
     laser_properties_.figure_local_->init( 700, 700, -0.5, 8, -5, 5, M_PI / 2.0, 1, 1 );
   }
   
-  void ImageView::onUndo() {
+  void ImageView::onUndo()
+  {
     lock();
     bool update_draw = false;
-    if ( pnp_data_ ) {
-      if ( pnp_data_->image_points.size() >= 4 ) {
-        pnp_data_->image_points.resize( pnp_data_->image_points.size() - 4 );
-        pnp_data_->object_points.resize( pnp_data_->object_points.size() - 4 );
-        if ( pnp_data_->image_points.size()) {
-          update_draw = true;
-        }
+    if ( pnp_data_ )
+    {
+      if ( pnp_data_->image_points.size() >= 4 )
+      {
+        auto &ip = pnp_data_->image_points;
+        auto &op = pnp_data_->object_points;
+        ip.erase( ip.end() - 4, ip.end());
+        op.erase( op.end() - 4, op.end());
       }
     }
     unlock();
-    if ( update_draw ) {
+    if ( pnp_data_->image_points.size() > 0 )
+    {
       onPublisherButton();
       
       lock();
@@ -172,8 +182,10 @@ namespace tuw_extrinsic_camera {
     }
   }
   
-  void ImageView::drawImages() {
-    for ( size_t i = 0; i < image_properties_.laser2image_points_colored_.size(); ++i ) {
+  void ImageView::drawImages()
+  {
+    for ( size_t i = 0; i < image_properties_.laser2image_points_colored_.size(); ++i )
+    {
       cv::circle( image_properties_.conversion_mat_,
                   image_properties_.laser2image_points_colored_[i].first,
                   2,
@@ -181,7 +193,8 @@ namespace tuw_extrinsic_camera {
                   2 );
     }
     
-    if ( image_properties_.conversion_mat_.rows > 0 && image_properties_.conversion_mat_.cols > 0 ) {
+    if ( image_properties_.conversion_mat_.rows > 0 && image_properties_.conversion_mat_.cols > 0 )
+    {
       QImage image( image_properties_.conversion_mat_.data,
                     image_properties_.conversion_mat_.cols,
                     image_properties_.conversion_mat_.rows,
@@ -192,25 +205,31 @@ namespace tuw_extrinsic_camera {
     }
   }
   
-  void ImageView::shutdownPlugin() {
+  void ImageView::shutdownPlugin()
+  {
     subscriber_.shutdown();
   }
   
-  void ImageView::onFreezeImageBoxToggle( bool val ) {
+  void ImageView::onFreezeImageBoxToggle( bool val )
+  {
     freeze_image_ = val;
   }
   
-  void ImageView::onFreezeLaserBoxToggle( bool val ) {
+  void ImageView::onFreezeLaserBoxToggle( bool val )
+  {
     freeze_laser_scan_ = val;
   }
   
-  void ImageView::onLaserScanBoxToggle( bool val ) {
+  void ImageView::onLaserScanBoxToggle( bool val )
+  {
     use_laser_scan_range_ = val;
   }
   
-  void ImageView::onLeftSliderValChanged( int val ) {
+  void ImageView::onLeftSliderValChanged( int val )
+  {
     lock();
-    if ( laser_properties_.has_laser_measurement()) {
+    if ( laser_properties_.has_laser_measurement())
+    {
       double angle_min = laser_properties_.measurement_laser_->getLaser().angle_min;
       double angle_max = laser_properties_.measurement_laser_->getLaser().angle_max;
       
@@ -226,7 +245,8 @@ namespace tuw_extrinsic_camera {
     ui_.sliderLeftLaserD->setValue( ui_.sliderLeftLaserD->maximum() * 0.5 );
   }
   
-  void ImageView::onLeftDistanceSliderValChanged( int val ) {
+  void ImageView::onLeftDistanceSliderValChanged( int val )
+  {
     lock();
     
     double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
@@ -239,10 +259,12 @@ namespace tuw_extrinsic_camera {
     unlock();
   }
   
-  void ImageView::onRightSliderValChanged( int val ) {
+  void ImageView::onRightSliderValChanged( int val )
+  {
     lock();
     
-    if ( laser_properties_.has_laser_measurement()) {
+    if ( laser_properties_.has_laser_measurement())
+    {
       double angle_min = 0, angle_max = 1;
       {
         angle_min = laser_properties_.measurement_laser_->getLaser().angle_min;
@@ -262,7 +284,8 @@ namespace tuw_extrinsic_camera {
     ui_.sliderRightLaserD->setValue( ui_.sliderRightLaserD->maximum() * 0.5 );
   }
   
-  void ImageView::onRightDistanceSliderValChanged( int val ) {
+  void ImageView::onRightDistanceSliderValChanged( int val )
+  {
     lock();
     double p = static_cast<double>(val) / static_cast<double>(ui_.sliderLeftLaserD->maximum());
     sliders_.distance_adjustment_right_ = (p - 0.5) * sliders_.distance_step_;
@@ -274,24 +297,29 @@ namespace tuw_extrinsic_camera {
     unlock();
   }
   
-  void ImageView::onZoomIn() {
+  void ImageView::onZoomIn()
+  {
     image_scale_factor_ += 0.1;
     scaleImage( image_scale_factor_ );
   }
   
-  void ImageView::onZoomOut() {
+  void ImageView::onZoomOut()
+  {
     image_scale_factor_ -= 0.1;
     scaleImage( image_scale_factor_ );
   }
   
-  void ImageView::scaleImage( double factor ) {
-    if ( ui_.image_frame->getImage().isNull()) {
+  void ImageView::scaleImage( double factor )
+  {
+    if ( ui_.image_frame->getImage().isNull())
+    {
       return;
     }
     ui_.image_frame->setInnerFrameFixedSize( ui_.image_frame->getImage().size() * factor );
   }
   
-  void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const {
+  void ImageView::saveSettings( qt_gui_cpp::Settings &plugin_settings, qt_gui_cpp::Settings &instance_settings ) const
+  {
     QString topic_img = ui_.topics_combo_box->currentText();
     QString topic_laser = ui_.laser_topic_combobox->currentText();
     QString pub_topic = ui_.pub_topic_textfield->text();
@@ -309,15 +337,19 @@ namespace tuw_extrinsic_camera {
   }
   
   void ImageView::restoreSettings( const qt_gui_cpp::Settings &plugin_settings,
-                                   const qt_gui_cpp::Settings &instance_settings ) {
+                                   const qt_gui_cpp::Settings &instance_settings )
+  {
     QString topic = instance_settings.value( "topic_image", "" ).toString();
-    if ( !arg_topic_name.isEmpty()) {
+    if ( !arg_topic_name.isEmpty())
+    {
       arg_topic_name = "";
-    } else {
+    } else
+    {
       selectTopic( topic );
     }
     QString topic_laser = instance_settings.value( "topic_laser", "" ).toString();
-    if ( !topic_laser.isEmpty()) {
+    if ( !topic_laser.isEmpty())
+    {
       selectLaserTopic( topic_laser );
     }
     
@@ -328,7 +360,8 @@ namespace tuw_extrinsic_camera {
     ui_.base_link_textfield->setText( base_link_topic_ );
   }
   
-  void ImageView::updateLaserTopicList() {
+  void ImageView::updateLaserTopicList()
+  {
     QSet<QString> message_types;
     QSet<QString> message_sub_types;
     QList<QString> transports_unused;
@@ -343,7 +376,8 @@ namespace tuw_extrinsic_camera {
     
     ui_.laser_topic_combobox->clear();
     
-    for ( QList<QString>::const_iterator it = topics.begin(); it != topics.end(); ++it ) {
+    for ( QList<QString>::const_iterator it = topics.begin(); it != topics.end(); ++it )
+    {
       QString label( *it );
       label.replace( " ", "/" );
       ui_.laser_topic_combobox->addItem( label, QVariant( *it ));
@@ -352,7 +386,8 @@ namespace tuw_extrinsic_camera {
     selectLaserTopic( selected );
   }
   
-  void ImageView::updateTopicList() {
+  void ImageView::updateTopicList()
+  {
     QSet<QString> message_types;
     message_types.insert( "sensor_msgs/Image" );
     QSet<QString> message_sub_types;
@@ -362,13 +397,15 @@ namespace tuw_extrinsic_camera {
     QList<QString> transports;
     image_transport::ImageTransport it( getNodeHandle());
     std::vector<std::string> declared = it.getDeclaredTransports();
-    for ( std::vector<std::string>::const_iterator it = declared.begin(); it != declared.end(); it++ ) {
+    for ( std::vector<std::string>::const_iterator it = declared.begin(); it != declared.end(); it++ )
+    {
       //qDebug("ImageView::updateTopicList() declared transport '%s'", it->c_str());
       QString transport = it->c_str();
       
       // strip prefix from transport name
       QString prefix = "image_transport/";
-      if ( transport.startsWith( prefix )) {
+      if ( transport.startsWith( prefix ))
+      {
         transport = transport.mid( prefix.length());
       }
       transports.append( transport );
@@ -381,7 +418,8 @@ namespace tuw_extrinsic_camera {
     topics.append( "" );
     qSort( topics );
     ui_.topics_combo_box->clear();
-    for ( QList<QString>::const_iterator it = topics.begin(); it != topics.end(); it++ ) {
+    for ( QList<QString>::const_iterator it = topics.begin(); it != topics.end(); it++ )
+    {
       QString label( *it );
       label.replace( " ", "/" );
       ui_.topics_combo_box->addItem( label, QVariant( *it ));
@@ -391,41 +429,50 @@ namespace tuw_extrinsic_camera {
     selectTopic( selected );
   }
   
-  QList<QString> ImageView::getTopicList( const QSet<QString> &message_types, const QList<QString> &transports ) {
+  QList<QString> ImageView::getTopicList( const QSet<QString> &message_types, const QList<QString> &transports )
+  {
     QSet<QString> message_sub_types;
     return getTopics( message_types, message_sub_types, transports ).values();
   }
   
   QSet<QString> ImageView::getTopics( const QSet<QString> &message_types, const QSet<QString> &message_sub_types,
-                                      const QList<QString> &transports ) {
+                                      const QList<QString> &transports )
+  {
     ros::master::V_TopicInfo topic_info;
     ros::master::getTopics( topic_info );
     
     QSet<QString> all_topics;
-    for ( ros::master::V_TopicInfo::const_iterator it = topic_info.begin(); it != topic_info.end(); it++ ) {
+    for ( ros::master::V_TopicInfo::const_iterator it = topic_info.begin(); it != topic_info.end(); it++ )
+    {
       all_topics.insert( it->name.c_str());
     }
     
     QSet<QString> topics;
-    for ( ros::master::V_TopicInfo::const_iterator it = topic_info.begin(); it != topic_info.end(); it++ ) {
-      if ( message_types.contains( it->datatype.c_str())) {
+    for ( ros::master::V_TopicInfo::const_iterator it = topic_info.begin(); it != topic_info.end(); it++ )
+    {
+      if ( message_types.contains( it->datatype.c_str()))
+      {
         QString topic = it->name.c_str();
         
         // add raw topic
         topics.insert( topic );
         
         // add transport specific sub-topics
-        for ( QList<QString>::const_iterator jt = transports.begin(); jt != transports.end(); jt++ ) {
-          if ( all_topics.contains( topic + "/" + *jt )) {
+        for ( QList<QString>::const_iterator jt = transports.begin(); jt != transports.end(); jt++ )
+        {
+          if ( all_topics.contains( topic + "/" + *jt ))
+          {
             QString sub = topic + " " + *jt;
             topics.insert( sub );
           }
         }
       }
-      if ( message_sub_types.contains( it->datatype.c_str())) {
+      if ( message_sub_types.contains( it->datatype.c_str()))
+      {
         QString topic = it->name.c_str();
         int index = topic.lastIndexOf( "/" );
-        if ( index != -1 ) {
+        if ( index != -1 )
+        {
           topic.replace( index, 1, " " );
           topics.insert( topic );
           //qDebug("ImageView::getTopics() transport specific sub-topic '%s'", topic.toStdString().c_str());
@@ -435,9 +482,11 @@ namespace tuw_extrinsic_camera {
     return topics;
   }
   
-  void ImageView::selectLaserTopic( const QString &topic ) {
+  void ImageView::selectLaserTopic( const QString &topic )
+  {
     int index = ui_.laser_topic_combobox->findText( topic );
-    if ( index == -1 ) {
+    if ( index == -1 )
+    {
       // add topic name to list if not yet in
       QString label( topic );
       label.replace( " ", "/" );
@@ -447,9 +496,11 @@ namespace tuw_extrinsic_camera {
     ui_.laser_topic_combobox->setCurrentIndex( index );
   }
   
-  void ImageView::selectTopic( const QString &topic ) {
+  void ImageView::selectTopic( const QString &topic )
+  {
     int index = ui_.topics_combo_box->findText( topic );
-    if ( index == -1 ) {
+    if ( index == -1 )
+    {
       // add topic name to list if not yet in
       QString label( topic );
       label.replace( " ", "/" );
@@ -459,14 +510,16 @@ namespace tuw_extrinsic_camera {
     ui_.topics_combo_box->setCurrentIndex( index );
   }
   
-  void ImageView::onLaserTopicChanged( int index ) {
+  void ImageView::onLaserTopicChanged( int index )
+  {
     sub_laser_.shutdown();
     
     QString laser_topic = ui_.laser_topic_combobox->currentText();
     sub_laser_ = getNodeHandle().subscribe( laser_topic.toStdString(), 1, &ImageView::callbackLaser, this );
   }
   
-  void ImageView::onTopicChanged( int index ) {
+  void ImageView::onTopicChanged( int index )
+  {
     subscriber_.shutdown();
     
     // reset image on topic change
@@ -479,10 +532,13 @@ namespace tuw_extrinsic_camera {
     std::string image_topic = topic.toStdString();
     std::string topic_camera_info;
     
-    if ( !topic.isEmpty()) {
+    if ( !topic.isEmpty())
+    {
       
-      for ( size_t i = image_topic.length() - 1; i >= 0; --i ) {
-        if ( image_topic[i] == '/' ) {
+      for ( size_t i = image_topic.length() - 1; i >= 0; --i )
+      {
+        if ( image_topic[i] == '/' )
+        {
           topic_camera_info.resize( i + 1 );
           std::copy( image_topic.begin(), image_topic.begin() + i + 1,
                      topic_camera_info.begin());
@@ -495,10 +551,12 @@ namespace tuw_extrinsic_camera {
       image_transport::ImageTransport it( getNodeHandle());
       image_transport::TransportHints hints( transport.toStdString());
       
-      try {
+      try
+      {
         subscriber_ = it.subscribe( topic.toStdString(), 1, &ImageView::callbackImage, this, hints );
         //qDebug("ImageView::onTopicChanged() to topic '%s' with transport '%s'", topic.toStdString().c_str(), subscriber_.getTransport().c_str());
-      } catch (image_transport::TransportLoadException &e) {
+      } catch (image_transport::TransportLoadException &e)
+      {
         QMessageBox::warning( widget_, tr( "Loading image transport plugin failed" ), e.what());
       }
       
@@ -511,7 +569,8 @@ namespace tuw_extrinsic_camera {
     onMousePublish( true );
   }
   
-  void ImageView::onMousePublish( bool checked ) {
+  void ImageView::onMousePublish( bool checked )
+  {
     //std::string topicName;
     //if ( pub_topic_custom_ ) {
     //  topicName = ui_.publish_click_location_topic_line_edit->text().toStdString();
@@ -527,8 +586,10 @@ namespace tuw_extrinsic_camera {
     //pub_fiducial_detection_ = getNodeHandle().advertise<marker_msgs::FiducialDetection>( "/fiducials", 1000 );
   }
   
-  void ImageView::onMouseLeft( int x, int y ) {
-    if ( !ui_.image_frame->getImage().isNull()) {
+  void ImageView::onMouseLeft( int x, int y )
+  {
+    if ( !ui_.image_frame->getImage().isNull())
+    {
       geometry_msgs::Point clickCanvasLocation;
       // Publish click location in pixel coordinates
       clickCanvasLocation.x = round(
@@ -556,23 +617,29 @@ namespace tuw_extrinsic_camera {
     }
   }
   
-  void ImageView::onPubTopicChanged() {
+  void ImageView::onPubTopicChanged()
+  {
     publisher_topic_ = ui_.pub_topic_textfield->text();
     pub_result_ = getNodeHandle().advertise<geometry_msgs::TransformStamped>( publisher_topic_.toStdString(), 1000 );
   }
   
-  void ImageView::onBaseTFTopicChanged() {
-    if ( !ui_.base_link_textfield->text().isEmpty()) {
+  void ImageView::onBaseTFTopicChanged()
+  {
+    if ( !ui_.base_link_textfield->text().isEmpty())
+    {
       base_link_topic_ = ui_.base_link_textfield->text();
-      if ( base_link_topic_[0] == '/' ) {
+      if ( base_link_topic_[0] == '/' )
+      {
         base_link_topic_ = base_link_topic_.right( base_link_topic_.size() - 1 );
       }
     }
   }
   
-  void ImageView::updateLaser2Map() {
+  void ImageView::updateLaser2Map()
+  {
     
-    if ( laser_properties_.has_laser_measurement() && laser_properties_.is_figure_initialized()) {
+    if ( laser_properties_.has_laser_measurement() && laser_properties_.is_figure_initialized())
+    {
       
       laser_properties_.figure_local_->clear();
       laser_properties_.figure_local_->init( 700, 700, -1, laser_properties_.measurement_laser_->max_reading_ + 1, -5,
@@ -586,18 +653,23 @@ namespace tuw_extrinsic_camera {
       
       for ( std::vector<tuw::Contour::Beam>::iterator it_l = laser_properties_.measurement_laser_->begin();
             it_l != laser_properties_.measurement_laser_->end();
-            ++it_l ) {
+            ++it_l )
+      {
         //double colorscale = (it_l->angle - min_angle) / (max_angle - min_angle);
-        if ( it_l->angle < sliders_.leftSplitAngle_ && it_l->angle > sliders_.rightSplitAngle_ ) {
-          if ( !first_hit ) {
+        if ( it_l->angle < sliders_.leftSplitAngle_ && it_l->angle > sliders_.rightSplitAngle_ )
+        {
+          if ( !first_hit )
+          {
             first_hit = true;
             sliders_.currentRightRange = it_l->range;
-          } else {
+          } else
+          {
             sliders_.currentLeftRange = it_l->range;
           }
           laser_properties_.figure_local_->circle( it_l->end_point, 2, laser_properties_.figure_local_->green );
           it_l->set_valid( true );
-        } else {
+        } else
+        {
           laser_properties_.figure_local_->circle( it_l->end_point, 2, laser_properties_.figure_local_->red );
           it_l->set_valid( false );
         }
@@ -632,7 +704,8 @@ namespace tuw_extrinsic_camera {
     }
   }
   
-  void ImageView::onRefinePressed() {
+  void ImageView::onRefinePressed()
+  {
     ui_.freeze_laser_checkbox->setChecked( false );
     ui_.freeze_image_checkbox->setChecked( false );
     ui_.laser_scan_checkbox->setChecked( false );
@@ -644,12 +717,14 @@ namespace tuw_extrinsic_camera {
     unlock();
   }
   
-  bool ImageView::updateLaser2Image() {
+  bool ImageView::updateLaser2Image()
+  {
     
     if ( image_properties_.has_image_measurement() &&
          image_properties_.measurement_image_->getCameraModel() &&
          laser_properties_.has_laser_measurement() &&
-         laser_properties_.is_figure_initialized()) {
+         laser_properties_.is_figure_initialized())
+    {
       
       image_properties_.laser2image_points_colored_.clear();
       Eigen::Matrix4d T_WC;
@@ -670,17 +745,20 @@ namespace tuw_extrinsic_camera {
       std::size_t i = 0;
       for ( auto beam_it = laser_properties_.measurement_laser_->begin();
             beam_it != laser_properties_.measurement_laser_->end();
-            ++beam_it, ++i ) {
+            ++beam_it, ++i )
+      {
         Eigen::Vector4d laser_in_image =
             T_CL * Eigen::Vector4d( beam_it->end_point.x(), beam_it->end_point.y(), 0, 1 );
         laser_in_image = laser_in_image / laser_in_image[3];
         
-        if ( isID ) {
+        if ( isID )
+        {
           std::swap( laser_in_image[1], laser_in_image[2] ); //y is z
         }
         const cv::Point3d pnt3d = cv::Point3d( laser_in_image[0], laser_in_image[1], laser_in_image[2] );
         cv::Scalar color = laser_properties_.figure_local_->magenta;
-        if ( beam_it->is_valid()) {
+        if ( beam_it->is_valid())
+        {
           color = laser_properties_.figure_local_->green;
         }
         image_properties_.laser2image_points_colored_[i] = std::make_pair(
@@ -692,7 +770,8 @@ namespace tuw_extrinsic_camera {
     return false;
   }
   
-  void ImageView::setIdentity( geometry_msgs::TransformStampedPtr tf ) {
+  void ImageView::setIdentity( geometry_msgs::TransformStampedPtr tf )
+  {
     auto &q = tf->transform.rotation;
     auto &t = tf->transform.translation;
     
@@ -706,22 +785,27 @@ namespace tuw_extrinsic_camera {
     t.z = 0.0;
   }
   
-  void ImageView::callbackLaser( const sensor_msgs::LaserScan &_laser ) {
+  void ImageView::callbackLaser( const sensor_msgs::LaserScan &_laser )
+  {
     lock();
     geometry_msgs::TransformStampedPtr tf_ptr;
     tf_ptr.reset( new geometry_msgs::TransformStamped());
     setIdentity( tf_ptr );
     
-    if ( getStaticTF( base_link_topic_.toStdString(), _laser.header.frame_id.c_str(), tf_ptr, false )) {
-      if ( laser_properties_.has_laser_measurement()) {
+    if ( getStaticTF( base_link_topic_.toStdString(), _laser.header.frame_id.c_str(), tf_ptr, false ))
+    {
+      if ( laser_properties_.has_laser_measurement())
+      {
         laser_properties_.measurement_laser_->setTfWorldSensor( tf_ptr );
       }
     }
     
-    if ( !freeze_laser_scan_ ) {
+    if ( !freeze_laser_scan_ )
+    {
       image_properties_.laser2image_points_colored_.clear();
       
-      if ( !laser_properties_.has_laser_measurement()) {
+      if ( !laser_properties_.has_laser_measurement())
+      {
         laser_properties_.measurement_laser_.reset( new tuw::LaserMeasurement( tf_ptr ));
       }
       laser_properties_.measurement_laser_->initFromScan( _laser );
@@ -735,19 +819,22 @@ namespace tuw_extrinsic_camera {
     unlock();
   }
   
-  void ImageView::callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg ) {
+  void ImageView::callbackCameraInfo( const sensor_msgs::CameraInfo::ConstPtr &_msg )
+  {
     //std::cout << "callbackCamerainfo" << std::endl;
     
     lock();
     camera_model_.reset( new image_geometry::PinholeCameraModel());
     camera_model_->fromCameraInfo( _msg );
-    if ( image_properties_.has_image_measurement()) {
+    if ( image_properties_.has_image_measurement())
+    {
       image_properties_.measurement_image_->setCameraModel( camera_model_ );
     }
     unlock();
   }
   
-  void ImageView::callbackImage( const sensor_msgs::Image::ConstPtr &msg ) {
+  void ImageView::callbackImage( const sensor_msgs::Image::ConstPtr &msg )
+  {
     lock();
     geometry_msgs::TransformStampedPtr tf;
     tf.reset( new geometry_msgs::TransformStamped());
@@ -756,34 +843,43 @@ namespace tuw_extrinsic_camera {
     //  std::cout << "success" << std::endl;
     //}
     
-    if ( !freeze_image_ ) {
+    if ( !freeze_image_ )
+    {
       
-      try {
+      try
+      {
         // First let cv_bridge do its magic
         cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg, sensor_msgs::image_encodings::RGB8 );
         image_properties_.conversion_mat_ = cv_ptr->image;
         
-        if ( image_properties_.has_image_measurement()) {
+        if ( image_properties_.has_image_measurement())
+        {
           tf = image_properties_.measurement_image_->getStampedTf();
         }
         
         image_properties_.measurement_image_.reset( new tuw::ImageMeasurement( cv_ptr, tf ));
         
-        if ( camera_model_ ) {
+        if ( camera_model_ )
+        {
           image_properties_.measurement_image_->setCameraModel( camera_model_ );
         }
       }
-      catch (cv_bridge::Exception &e) {
-        try {
+      catch (cv_bridge::Exception &e)
+      {
+        try
+        {
           // If we're here, there is no conversion that makes sense, but let's try to imagine a few first
           cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare( msg );
-          if ( msg->encoding == "CV_8UC3" ) {
+          if ( msg->encoding == "CV_8UC3" )
+          {
             // assuming it is rgb
             image_properties_.conversion_mat_ = cv_ptr->image;
-          } else if ( msg->encoding == "8UC1" ) {
+          } else if ( msg->encoding == "8UC1" )
+          {
             // convert gray to rgb
             cv::cvtColor( cv_ptr->image, image_properties_.conversion_mat_, CV_GRAY2RGB );
-          } else {
+          } else
+          {
             qWarning( "ImageView.callback_image() could not convert image from '%s' to 'rgb8' (%s)",
                       msg->encoding.c_str(),
                       e.what());
@@ -791,7 +887,8 @@ namespace tuw_extrinsic_camera {
             return;
           }
         }
-        catch (cv_bridge::Exception &e) {
+        catch (cv_bridge::Exception &e)
+        {
           qWarning(
               "ImageView.callback_image() while trying to convert image from '%s' to 'rgb8' an exception was thrown (%s)",
               msg->encoding.c_str(), e.what());
@@ -807,12 +904,14 @@ namespace tuw_extrinsic_camera {
     unlock();
   }
   
-  void ImageView::onPublisherButton() {
+  void ImageView::onPublisherButton()
+  {
     
     lock();
     if ( image_properties_.clickedPoints_.size() == 4 &&
          use_laser_scan_range_ &&
-         laser_properties_.has_laser_measurement()) {
+         laser_properties_.has_laser_measurement())
+    {
       
       std::vector<cv::Point3f> object_points;
       Eigen::Vector4d leftMostPnt;
@@ -822,26 +921,32 @@ namespace tuw_extrinsic_camera {
         std::vector<tuw::Contour::Beam> laser_beams( laser_properties_.measurement_laser_->size());
         auto end_it = std::copy_if( laser_properties_.measurement_laser_->begin(),
                                     laser_properties_.measurement_laser_->end(), laser_beams.begin(),
-                                    []( const tuw::Contour::Beam &b ) {
-                                      if ( b.is_valid()) {
+                                    []( const tuw::Contour::Beam &b )
+                                    {
+                                      if ( b.is_valid())
+                                      {
                                         return true;
                                       }
                                       return false;
                                     } );
         laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
         
-        if ( fabs( sliders_.distance_adjustment_left_ ) < std::numeric_limits<double>::epsilon()) {
+        if ( fabs( sliders_.distance_adjustment_left_ ) < std::numeric_limits<double>::epsilon())
+        {
           leftMostPnt = Eigen::Vector4d( laser_beams.back().end_point.x(), laser_beams.back().end_point.y(), 0, 1 );
-        } else {
+        } else
+        {
           auto &l_meas = laser_beams.back();
           double c_mod = cos( l_meas.angle ) * (l_meas.range + sliders_.distance_adjustment_right_);
           double s_mod = sin( l_meas.angle ) * (l_meas.range + sliders_.distance_adjustment_right_);
           leftMostPnt = Eigen::Vector4d( c_mod, s_mod, 0, 1 );
         }
         
-        if ( fabs( sliders_.distance_adjustment_right_ ) < std::numeric_limits<double>::epsilon()) {
+        if ( fabs( sliders_.distance_adjustment_right_ ) < std::numeric_limits<double>::epsilon())
+        {
           rightMostPnt = Eigen::Vector4d( laser_beams.front().end_point.x(), laser_beams.front().end_point.y(), 0, 1 );
-        } else {
+        } else
+        {
           auto &r_meas = laser_beams.front();
           double c_mod = cos( r_meas.angle ) * (r_meas.range + sliders_.distance_adjustment_right_);
           double s_mod = sin( r_meas.angle ) * (r_meas.range + sliders_.distance_adjustment_right_);
@@ -856,22 +961,27 @@ namespace tuw_extrinsic_camera {
       rightMostPnt = rightMostPnt / rightMostPnt[3];
       
       size_t point_count = 0;
-      for ( const cv::Point2d &pt : image_properties_.clickedPoints_ ) {
+      for ( const cv::Point2d &pt : image_properties_.clickedPoints_ )
+      {
         
         cv::Point3d object_point;
-        if ( point_count == 0 ) {
+        if ( point_count == 0 )
+        {
           object_point.x = leftMostPnt.x();
           object_point.y = leftMostPnt.y();
           object_point.z = 0;
-        } else if ( point_count == 1 ) {
+        } else if ( point_count == 1 )
+        {
           object_point.x = leftMostPnt.x();
           object_point.y = leftMostPnt.y();
           object_point.z = 2.0f;
-        } else if ( point_count == 2 ) {
+        } else if ( point_count == 2 )
+        {
           object_point.x = rightMostPnt.x();
           object_point.y = rightMostPnt.y();
           object_point.z = 2.0f;
-        } else if ( point_count == 3 ) {
+        } else if ( point_count == 3 )
+        {
           object_point.x = rightMostPnt.x();
           object_point.y = rightMostPnt.y();
           object_point.z = 0.0f;
@@ -882,7 +992,8 @@ namespace tuw_extrinsic_camera {
         
       }
       
-      if ( !pnp_data_ ) {
+      if ( !pnp_data_ )
+      {
         pnp_data_.reset( new PnPData());
         pnp_data_->K = image_properties_.measurement_image_->getCameraModel()->intrinsicMatrix();
         pnp_data_->D = cv::Mat::zeros( cv::Size( 1, 5 ), CV_64F );
@@ -905,7 +1016,8 @@ namespace tuw_extrinsic_camera {
       cv::Mat R33 = cv::Mat( pnp_data_->T_CW, cv::Rect( 0, 0, 3, 3 ));
       cv::Rodrigues( rv, R33 );
       
-      for ( int i = 0; i < 3; ++i ) {
+      for ( int i = 0; i < 3; ++i )
+      {
         pnp_data_->T_CW.row( i ).col( 3 ) = tv.at<double>( i );
       }
       
@@ -916,14 +1028,16 @@ namespace tuw_extrinsic_camera {
         image_properties_.measurement_image_->setTfWorldSensor( T_WC, true );
       }
       
-      std::cout << "======================\n";
-      std::cout << "    TF estimated\n\n";
-      std::cout << T_WC << "\n";
-      std::cout << "(x y z) (yaw pitch roll)\n";
+      std::ofstream fs;
+      fs.open( "/home/felix/cam_calib_debug_vals.txt" );
+      fs << "======================\n";
+      fs << "    TF estimated\n\n";
+      fs << T_WC << "\n";
+      fs << "(x y z) (yaw pitch roll)\n";
       Eigen::Vector3d ypr = T_WC.topLeftCorner<3, 3>().eulerAngles( 2, 1, 0 );
-      std::cout << T_WC( 0, 3 ) << " " << T_WC( 1, 3 ) << " " << T_WC( 2, 3 ) << " " << ypr[0] << " " << ypr[1] << " "
-                << ypr[2] << "\n";
-      std::cout << "======================\n";
+      fs << T_WC( 0, 3 ) << " " << T_WC( 1, 3 ) << " " << T_WC( 2, 3 ) << " " << ypr[0] << " " << ypr[1] << " "
+         << ypr[2] << "\n";
+      fs << "======================\n";
       
       updateLaser2Image();
       updateLaser2Map();
@@ -936,21 +1050,25 @@ namespace tuw_extrinsic_camera {
   }
   
   bool ImageView::getStaticTF( const std::string &world_frame, const std::string &source_frame,
-                               geometry_msgs::TransformStampedPtr &_tf, bool debug ) {
+                               geometry_msgs::TransformStampedPtr &_tf, bool debug )
+  {
     
     std::string target_frame_id = source_frame;
     std::string source_frame_id = world_frame;
     std::string key = target_frame_id + "->" + source_frame_id;
     
-    if ( !tfMap_[key] ) {
-      try {
+    if ( !tfMap_[key] )
+    {
+      try
+      {
         geometry_msgs::TransformStamped stamped_tf = tf_buffer_.lookupTransform(
             source_frame_id, target_frame_id, ros::Time( 0 ));
         
         _tf.reset( new geometry_msgs::TransformStamped( stamped_tf ));
         
         tfMap_[key] = _tf;
-      } catch (tf2::TransformException &ex) {
+      } catch (tf2::TransformException &ex)
+      {
         
         ROS_INFO( "getStaticTF" );
         ROS_ERROR( "%s", ex.what());
@@ -958,11 +1076,13 @@ namespace tuw_extrinsic_camera {
         return false;
         
       }
-    } else {
+    } else
+    {
       _tf = tfMap_[key];
     }
     
-    if ( debug ) {
+    if ( debug )
+    {
       std::cout << key << std::endl;
       const auto t = _tf->transform.translation;
       const auto q = _tf->transform.rotation;
