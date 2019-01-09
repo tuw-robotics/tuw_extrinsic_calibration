@@ -17,13 +17,14 @@ namespace tuw
     
     RealSenseTransformsNode();
     
-    void readXML( const std::string &filename );
+    void readXML();
     
     void callbackTransform( const geometry_msgs::TransformConstPtr &tf );
   
   private:
     ros::Subscriber sub_transform_;
     ros::NodeHandle nh_;
+    std::string calib_file_;
     
   };
   
