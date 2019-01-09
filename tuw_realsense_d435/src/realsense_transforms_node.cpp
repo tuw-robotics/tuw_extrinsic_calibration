@@ -6,13 +6,15 @@ using namespace tuw;
 RealSenseTransformsNode::RealSenseTransformsNode() : nh_( "~" )
 {
   nh_.param<std::string>( "calib_file", calib_file_, "" );
-  std::cout << calib_file_ << std::endl;
-  sub_transform_ = nh_.subscribe( "tf_base_to_image", 1000, &RealSenseTransformsNode::callbackTransform, this );
+  sub_transform_ = nh_.subscribe( "tf_base_cam_optical_frame",
+                                  1000,
+                                  &RealSenseTransformsNode::callbackTransform,
+                                  this );
 }
 
 void RealSenseTransformsNode::readXML()
 {
-  Eigen::Vector4d trans = Eigen::Vector4d( 0, 0, 0, 1 );
+  Eigen::Vector3d trans = Eigen::Vector3d( 0, 0, 0 );
   Eigen::Matrix3d rot;
   rot.setIdentity();
   
@@ -59,7 +61,11 @@ void RealSenseTransformsNode::readXML()
                   vals = vals->NextSibling();
                 }
               }
-            } catch (boost::bad_lexical_cast const &)
+            } catch (std::runtime_error const &)
+            {
+              ROS_ERROR( "parsing rotation: too few <value></value> arguments provided" );
+            }
+            catch (boost::bad_lexical_cast const &)
             {
               ROS_ERROR( "lexical cast: cannot cast double (calib xml RotationLeftRGB)" );
             }
@@ -78,12 +84,25 @@ void RealSenseTransformsNode::readXML()
       } //end while
       
       std::stringstream sstr( "" );
-      sstr << "Parsed file \n" << std::endl;
-      sstr << "translation: \n" << std::endl;
+      sstr << "Parsed file \n";
+      sstr << "translation: \n";
       sstr << trans << "\n";
       sstr << "rotation: \n";
       sstr << rot << "\n";
       ROS_INFO( "%s", sstr.str().c_str());
+      
+      //converting stuff to meters from cm;
+      trans = trans / 100.0;
+      camera_internal_.t_leftrgb_origin_.setIdentity();
+      camera_internal_.t_leftrgb_origin_.topLeftCorner<3, 3>() = rot;
+      camera_internal_.t_leftrgb_origin_.topRightCorner<3, 1>() = trans;
+      
+      //invert stuff without relying on less accurate Eigen functions
+      rot = rot.transpose();
+      trans = -trans;
+      camera_internal_.t_leftrgb_origin_.setIdentity();
+      camera_internal_.t_origin_leftrgb_.topLeftCorner<3, 3>() = rot;
+      camera_internal_.t_origin_leftrgb_.topRightCorner<3, 1>() = trans;
     }
   } else
   {
@@ -91,16 +110,18 @@ void RealSenseTransformsNode::readXML()
   }
 }
 
-void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformConstPtr &tf )
+void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformConstPtr &tf_base_cam_optical_center )
 {
-  auto &q = tf->rotation;
-  auto &t = tf->translation;
+  auto &q = tf_base_cam_optical_center->rotation;
+  auto &t = tf_base_cam_optical_center->translation;
   Eigen::Quaterniond qe = Eigen::Quaterniond( q.w, q.y, q.z, q.x );
   Eigen::Vector3d te = Eigen::Vector3d( t.x, t.y, t.z );
   
-  Eigen::Matrix4d tf_e;
-  tf_e.topLeftCorner<3, 3>() = qe.toRotationMatrix();
-  tf_e.topRightCorner<3, 1>() = te;
+  Eigen::Matrix4d tf_base_cam_optical_frame;
+  tf_base_cam_optical_frame.topLeftCorner<3, 3>() = qe.toRotationMatrix();
+  tf_base_cam_optical_frame.topRightCorner<3, 1>() = te;
+  
+  camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame * camera_internal_.t_leftrgb_origin_
 }
 
 int main( int argc, char **argv )

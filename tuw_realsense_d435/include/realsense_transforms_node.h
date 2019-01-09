@@ -14,17 +14,31 @@ namespace tuw
   {
   
   public:
+    struct CameraInternalExtrinsics
+    {
+    public:
+      Eigen::Matrix4d t_origin_leftrgb_;
+      Eigen::Matrix4d t_leftrgb_origin_;
+    };
+    
+    struct CameraExternalExtrinsics
+    {
+    public:
+      Eigen::Matrix4d t_base_cam_origin_;
+    };
     
     RealSenseTransformsNode();
     
     void readXML();
     
-    void callbackTransform( const geometry_msgs::TransformConstPtr &tf );
+    void callbackTransform( const geometry_msgs::TransformConstPtr &tf_base_cam_origin );
   
   private:
     ros::Subscriber sub_transform_;
     ros::NodeHandle nh_;
     std::string calib_file_;
+    CameraInternalExtrinsics camera_internal_;
+    CameraExternalExtrinsics camera_external_;
     
   };
   
