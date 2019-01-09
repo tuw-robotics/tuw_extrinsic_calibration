@@ -121,7 +121,7 @@ void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformC
   tf_base_cam_optical_frame.topLeftCorner<3, 3>() = qe.toRotationMatrix();
   tf_base_cam_optical_frame.topRightCorner<3, 1>() = te;
   
-  camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame * camera_internal_.t_leftrgb_origin_
+  camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame * camera_internal_.t_leftrgb_origin_;
 }
 
 int main( int argc, char **argv )
