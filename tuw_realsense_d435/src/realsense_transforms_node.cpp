@@ -83,6 +83,8 @@ bool RealSenseTransformsNode::readExternalCalibrationFromFile()
     }
   }
   
+  std::cout << "tf_base_cam_optical_frame " << tf_base_cam_optical_frame << std::endl;
+  
   doTransform( tf_base_cam_optical_frame );
   
   return true;
@@ -160,25 +162,29 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
       } //end while
       
       std::stringstream sstr( "" );
-      sstr << "Parsed file \n";
+      sstr << "Parsed file for camera parameters\n";
       sstr << "translation: \n";
       sstr << trans << "\n";
       sstr << "rotation: \n";
       sstr << rot << "\n";
-      ROS_INFO( "%s", sstr.str().c_str());
+      ROS_INFO( "%s\n", sstr.str().c_str());
       
       //converting stuff to meters from cm;
       trans = trans / 100.0;
       camera_internal_.t_leftrgb_origin_.setIdentity();
       camera_internal_.t_leftrgb_origin_.topLeftCorner<3, 3>() = rot;
       camera_internal_.t_leftrgb_origin_.topRightCorner<3, 1>() = trans;
+      std::cout << "tf_leftrgb_origin " << std::endl;
+      std::cout << camera_internal_.t_leftrgb_origin_ << std::endl;
       
       //invert stuff without relying on less accurate Eigen functions
-      rot = rot.transpose();
-      trans = -trans;
-      camera_internal_.t_leftrgb_origin_.setIdentity();
-      camera_internal_.t_origin_leftrgb_.topLeftCorner<3, 3>() = rot;
-      camera_internal_.t_origin_leftrgb_.topRightCorner<3, 1>() = trans;
+      Eigen::Matrix3d rot_t = rot.transpose();
+      Eigen::Vector3d trans_t = -trans;
+      camera_internal_.t_origin_leftrgb_.setIdentity();
+      camera_internal_.t_origin_leftrgb_.topLeftCorner<3, 3>() = rot_t;
+      camera_internal_.t_origin_leftrgb_.topRightCorner<3, 1>() = trans_t;
+      std::cout << "tf_origin_leftrgb" << std::endl;
+      std::cout << camera_internal_.t_origin_leftrgb_ << std::endl;
     }
   } else
   {
@@ -194,6 +200,7 @@ void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformC
   Eigen::Vector3d te = Eigen::Vector3d( t.x, t.y, t.z );
   
   Eigen::Matrix4d tf_base_cam_optical_frame;
+  tf_base_cam_optical_frame.setIdentity();
   tf_base_cam_optical_frame.topLeftCorner<3, 3>() = qe.toRotationMatrix();
   tf_base_cam_optical_frame.topRightCorner<3, 1>() = te;
   
@@ -203,40 +210,48 @@ void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformC
 void RealSenseTransformsNode::doTransform( const Eigen::Matrix4d &tf_base_cam_optical_frame )
 {
   camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame * camera_internal_.t_leftrgb_origin_;
+  std::cout << camera_external_.t_base_cam_origin_ << std::endl;
 }
 
 void RealSenseTransformsNode::publish()
 {
-  geometry_msgs::Transform tf_;
+  geometry_msgs::TransformStamped tf_;
+  tf_.header.stamp = ros::Time::now();
+  tf_.header.frame_id = "r0/base_link";
+  tf_.child_frame_id = "r0/mount_camera_tof";
+  
   auto m_rot = camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>();
-  auto v_trans = camera_external_.t_base_cam_origin_.topRightCorner<3, 1>();
+  Eigen::Vector3d v_trans = camera_external_.t_base_cam_origin_.topRightCorner<3, 1>();
   
   auto quat = Eigen::Quaterniond( m_rot );
-  tf_.rotation.x = quat.x();
-  tf_.rotation.y = quat.y();
-  tf_.rotation.z = quat.z();
-  tf_.rotation.w = quat.w();
+  tf_.transform.rotation.x = quat.x();
+  tf_.transform.rotation.y = quat.y();
+  tf_.transform.rotation.z = quat.z();
+  tf_.transform.rotation.w = quat.w();
   
-  tf_.translation.x = v_trans[0];
-  tf_.translation.y = v_trans[1];
-  tf_.translation.z = v_trans[2];
+  tf_.transform.translation.x = v_trans.x();
+  tf_.transform.translation.y = v_trans.y();
+  tf_.transform.translation.z = v_trans.z();
   
-  pub_transform_.publish( tf_ );
+  tf_broadcaster_.sendTransform( tf_ );
 }
 
 int main( int argc, char **argv )
 {
   ros::init( argc, argv, "realsense_transforms_node" );
   RealSenseTransformsNode node;
-  node.readExternalCalibrationFromFile();
   node.readInternalCalibrationFromXML();
+  node.readExternalCalibrationFromFile();
   
-  ros::Rate rate( 20 );
+  ros::Rate rate( 5 );
   while ( ros::ok())
   {
+    
     ros::spinOnce();
     rate.sleep();
+    
     node.publish();
+    
   }
   return 0;
 }

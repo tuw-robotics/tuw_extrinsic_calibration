@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <tf_conversions/tf_eigen.h>
+#include <tf/transform_broadcaster.h>
 #include <Eigen/Core>
 #include <tinyxml.h>
 
@@ -43,6 +44,7 @@ namespace tuw
   private:
     ros::Subscriber sub_transform_;
     ros::Publisher pub_transform_;
+    tf::TransformBroadcaster tf_broadcaster_;
     ros::NodeHandle nh_;
     std::string calib_file_;
     std::string external_calib_file_;
