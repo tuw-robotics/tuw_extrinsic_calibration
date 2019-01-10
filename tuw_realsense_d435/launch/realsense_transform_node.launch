@@ -1,5 +1,6 @@
 <launch>
     <node name="realsense_transforms_node" pkg="tuw_realsense_d435" type="realsense_transforms_node" output="screen">
         <param name="calib_file" value="$(find tuw_realsense_d435)/config/intel_rsd435_calib.xml"/>
+        <param name="external_calib_file" value="$(find tuw_realsense_d435)/config/external_calibration.csv"/>
     </node>
 </launch>
