@@ -219,7 +219,7 @@ void RealSenseTransformsNode::publish()
   geometry_msgs::TransformStamped tf_;
   tf_.header.stamp = ros::Time::now();
   tf_.header.frame_id = "r0/base_link";
-  tf_.child_frame_id = "r0/mount_camera_tof";
+  tf_.child_frame_id = publisher_topic_;
 
   auto m_rot = camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>();
   Eigen::Vector3d v_trans = camera_external_.t_base_cam_origin_.topRightCorner<3, 1>();
