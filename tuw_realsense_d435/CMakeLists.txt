@@ -6,7 +6,6 @@ find_package(catkin REQUIRED COMPONENTS
         roscpp
         sensor_msgs
         geometry_msgs
-        tuw_measurement_utils
         tf
         tf_conversions
         cmake_modules
