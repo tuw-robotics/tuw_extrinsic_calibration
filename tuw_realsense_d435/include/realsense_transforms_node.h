@@ -31,12 +31,19 @@ namespace tuw
     public:
       CameraInternalExtrinsics()
       {
-        t_origin_leftrgb_.setIdentity();
-        t_leftrgb_origin_.setIdentity();
+        t_origin_leftrgb_base_.setIdentity();
+        t_leftrgb_base_origin_.setIdentity();
+        q_basecam_cam_.x() = -0.5;
+        q_basecam_cam_.y() = 0.5;
+        q_basecam_cam_.z() = -0.5;
+        q_basecam_cam_.w() = 0.5;
       }
       
-      Eigen::Matrix4d t_origin_leftrgb_;
-      Eigen::Matrix4d t_leftrgb_origin_;
+      Eigen::Matrix4d t_origin_leftrgb_base_;
+      Eigen::Matrix4d t_leftrgb_base_origin_;
+      Eigen::Matrix4d t_opticenter_base_;
+      Eigen::Matrix4d t_base_opticenter_;
+      Eigen::Quaterniond q_basecam_cam_;
     };
     
     struct CameraExternalExtrinsics

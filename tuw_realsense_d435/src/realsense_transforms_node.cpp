@@ -182,20 +182,30 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
       
       //converting stuff to meters from cm;
       trans = trans / 100.0;
-      camera_internal_.t_origin_leftrgb_.setIdentity();
-      camera_internal_.t_origin_leftrgb_.topLeftCorner<3, 3>() = rot;
-      camera_internal_.t_origin_leftrgb_.topRightCorner<3, 1>() = trans;
-      std::cout << "tf_leftrgb_origin " << std::endl;
-      std::cout << camera_internal_.t_origin_leftrgb_ << std::endl;
+      camera_internal_.t_origin_leftrgb_base_.setIdentity();
+      camera_internal_.t_origin_leftrgb_base_.topLeftCorner<3, 3>() = rot;
+      camera_internal_.t_origin_leftrgb_base_.topRightCorner<3, 1>() = trans;
+      std::cout << "tf_origin_leftrgb " << std::endl;
+      std::cout << camera_internal_.t_origin_leftrgb_base_ << std::endl;
+      Eigen::Quaterniond as_q = Eigen::Quaterniond( rot );
+      std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
       
       //invert stuff without relying on less accurate Eigen functions
       Eigen::Matrix3d rot_t = rot.transpose();
       Eigen::Vector3d trans_t = -trans;
-      camera_internal_.t_leftrgb_origin_.setIdentity();
-      camera_internal_.t_leftrgb_origin_.topLeftCorner<3, 3>() = rot_t;
-      camera_internal_.t_leftrgb_origin_.topRightCorner<3, 1>() = trans_t;
+      camera_internal_.t_leftrgb_base_origin_.setIdentity();
+      camera_internal_.t_leftrgb_base_origin_.topLeftCorner<3, 3>() = rot_t;
+      camera_internal_.t_leftrgb_base_origin_.topRightCorner<3, 1>() = trans_t;
       std::cout << "tf_origin_leftrgb" << std::endl;
-      std::cout << camera_internal_.t_leftrgb_origin_ << std::endl;
+      std::cout << camera_internal_.t_leftrgb_base_origin_ << std::endl;
+      as_q = Eigen::Quaterniond( rot_t );
+      std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
+      
+      camera_internal_.t_base_opticenter_.setIdentity();
+      camera_internal_.t_base_opticenter_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix();
+      
+      camera_internal_.t_opticenter_base_.setIdentity();
+      camera_internal_.t_opticenter_base_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix().transpose();
     }
   } else
   {
@@ -220,7 +230,10 @@ void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformC
 
 void RealSenseTransformsNode::doTransform( const Eigen::Matrix4d &tf_base_cam_optical_frame )
 {
-  camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame * camera_internal_.t_leftrgb_origin_;
+  camera_external_.t_base_cam_origin_ =
+      tf_base_cam_optical_frame *
+      camera_internal_.t_opticenter_base_ *
+      camera_internal_.t_leftrgb_base_origin_;
   
   //@TODO: debug delete
   //camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame;
@@ -235,7 +248,7 @@ void RealSenseTransformsNode::publish()
   tf_.header.frame_id = "r0/base_link";
   tf_.child_frame_id = params().publisher_topic_;
   
-  auto m_rot = camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>();
+  Eigen::Matrix3d m_rot = camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>();
   Eigen::Vector3d v_trans = camera_external_.t_base_cam_origin_.topRightCorner<3, 1>();
   
   auto quat = Eigen::Quaterniond( m_rot );
@@ -244,10 +257,11 @@ void RealSenseTransformsNode::publish()
   tf_.transform.rotation.z = quat.z();
   tf_.transform.rotation.w = quat.w();
   
-  tf_.transform.rotation.x = 0;
-  tf_.transform.rotation.y = 0;
-  tf_.transform.rotation.z = 0;
-  tf_.transform.rotation.w = 1;
+  //@ToDo: not right
+  //tf_.transform.rotation.x = 0;
+  //tf_.transform.rotation.y = 0;
+  //tf_.transform.rotation.z = 0;
+  //tf_.transform.rotation.w = 1;
   
   tf_.transform.translation.x = v_trans.x();
   tf_.transform.translation.y = v_trans.y();
