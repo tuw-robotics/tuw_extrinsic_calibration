@@ -23,6 +23,7 @@ namespace tuw
       std::string publisher_topic_;
       std::string external_calib_file_;
       std::string calib_file_;
+      bool debug_;
       
     };
     
@@ -66,6 +67,8 @@ namespace tuw
     void readInternalCalibrationFromXML();
     
     void doTransform( const Eigen::Matrix4d &tf_base_cam_optical_frame );
+    
+    geometry_msgs::TransformStamped make_tf( const Eigen::Matrix4d &tf );
     
     void publish();
     

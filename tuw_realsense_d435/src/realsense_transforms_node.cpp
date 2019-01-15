@@ -14,6 +14,7 @@ RealSenseTransformsNode::ParametersNode::ParametersNode() : nh_( "~" )
   bool init_success = nh_.param<std::string>( "calib_file", calib_file_, "" );
   init_success &= nh_.param<std::string>( "external_calib_file", external_calib_file_, "" );
   init_success &= nh_.param<std::string>( "publisher_topic", publisher_topic_, "/r0/realsense" );
+  nh_.param<bool>( "debug", debug_, false );
   
   if ( !init_success )
   {
@@ -124,9 +125,10 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
           {
             try
             {
-              trans.x() = boost::lexical_cast<double>( value->ToElement()->GetText());
-              value = value->NextSibling();
+              //y is actually switched with x (they do not tell you that of course...)
               trans.y() = boost::lexical_cast<double>( value->ToElement()->GetText());
+              value = value->NextSibling();
+              trans.x() = boost::lexical_cast<double>( value->ToElement()->GetText());
               value = value->NextSibling();
               trans.z() = boost::lexical_cast<double>( value->ToElement()->GetText());
             } catch (boost::bad_lexical_cast const &)
@@ -180,15 +182,15 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
 //      sstr << rot << "\n";
 //      ROS_INFO( "%s\n", sstr.str().c_str());
       
-      //converting stuff to meters from cm;
-      trans = trans / 100.0;
+      //converting stuff to meters from millimeters;
+      trans = trans / 1000.0;
       camera_internal_.t_origin_leftrgb_base_.setIdentity();
       camera_internal_.t_origin_leftrgb_base_.topLeftCorner<3, 3>() = rot;
       camera_internal_.t_origin_leftrgb_base_.topRightCorner<3, 1>() = trans;
-      std::cout << "tf_origin_leftrgb " << std::endl;
-      std::cout << camera_internal_.t_origin_leftrgb_base_ << std::endl;
-      Eigen::Quaterniond as_q = Eigen::Quaterniond( rot );
-      std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
+      //std::cout << "tf_origin_leftrgb " << std::endl;
+      //std::cout << camera_internal_.t_origin_leftrgb_base_ << std::endl;
+      //Eigen::Quaterniond as_q = Eigen::Quaterniond( rot );
+      //std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
       
       //invert stuff without relying on less accurate Eigen functions
       Eigen::Matrix3d rot_t = rot.transpose();
@@ -196,10 +198,10 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
       camera_internal_.t_leftrgb_base_origin_.setIdentity();
       camera_internal_.t_leftrgb_base_origin_.topLeftCorner<3, 3>() = rot_t;
       camera_internal_.t_leftrgb_base_origin_.topRightCorner<3, 1>() = trans_t;
-      std::cout << "tf_origin_leftrgb" << std::endl;
-      std::cout << camera_internal_.t_leftrgb_base_origin_ << std::endl;
-      as_q = Eigen::Quaterniond( rot_t );
-      std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
+      //std::cout << "tf_origin_leftrgb" << std::endl;
+      //std::cout << camera_internal_.t_leftrgb_base_origin_ << std::endl;
+      //as_q = Eigen::Quaterniond( rot_t );
+      //std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
       
       camera_internal_.t_base_opticenter_.setIdentity();
       camera_internal_.t_base_opticenter_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix();
@@ -241,33 +243,59 @@ void RealSenseTransformsNode::doTransform( const Eigen::Matrix4d &tf_base_cam_op
   //std::cout << camera_external_.t_base_cam_origin_ << std::endl;
 }
 
+geometry_msgs::TransformStamped RealSenseTransformsNode::make_tf( const Eigen::Matrix4d &tf )
+{
+  geometry_msgs::TransformStamped tf_stamped;
+  
+  Eigen::Matrix3d m_rot = tf.topLeftCorner<3, 3>();
+  Eigen::Vector3d v_trans = tf.topRightCorner<3, 1>();
+  
+  auto quat = Eigen::Quaterniond( m_rot );
+  tf_stamped.transform.rotation.x = quat.x();
+  tf_stamped.transform.rotation.y = quat.y();
+  tf_stamped.transform.rotation.z = quat.z();
+  tf_stamped.transform.rotation.w = quat.w();
+  
+  tf_stamped.transform.translation.x = v_trans.x();
+  tf_stamped.transform.translation.y = v_trans.y();
+  tf_stamped.transform.translation.z = v_trans.z();
+  
+  return tf_stamped;
+}
+
 void RealSenseTransformsNode::publish()
 {
-  geometry_msgs::TransformStamped tf_;
+  //base to depth (origin)
+  geometry_msgs::TransformStamped tf_ = make_tf( camera_external_.t_base_cam_origin_ );
   tf_.header.stamp = ros::Time::now();
   tf_.header.frame_id = "r0/base_link";
   tf_.child_frame_id = params().publisher_topic_;
-  
-  Eigen::Matrix3d m_rot = camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>();
-  Eigen::Vector3d v_trans = camera_external_.t_base_cam_origin_.topRightCorner<3, 1>();
-  
-  auto quat = Eigen::Quaterniond( m_rot );
-  tf_.transform.rotation.x = quat.x();
-  tf_.transform.rotation.y = quat.y();
-  tf_.transform.rotation.z = quat.z();
-  tf_.transform.rotation.w = quat.w();
-  
-  //@ToDo: not right
-  //tf_.transform.rotation.x = 0;
-  //tf_.transform.rotation.y = 0;
-  //tf_.transform.rotation.z = 0;
-  //tf_.transform.rotation.w = 1;
-  
-  tf_.transform.translation.x = v_trans.x();
-  tf_.transform.translation.y = v_trans.y();
-  tf_.transform.translation.z = v_trans.z();
-  
   tf_broadcaster_.sendTransform( tf_ );
+  
+  std::cout << "debug: " << (params().debug_ ? "true" : "false") << std::endl;
+  
+  if ( params().debug_ )
+  {
+    
+    //base to depth (origin)
+    Eigen::Matrix4d tf_base_color_eigen =
+        camera_external_.t_base_cam_origin_ * camera_internal_.t_origin_leftrgb_base_;
+    
+    geometry_msgs::TransformStamped tf_base_color = make_tf( tf_base_color_eigen );
+    tf_base_color.header.stamp = ros::Time::now();
+    tf_base_color.header.frame_id = "r0/base_link";
+    tf_base_color.child_frame_id = "r0/realsense_rgb_dbg";
+    tf_broadcaster_.sendTransform( tf_base_color );
+    
+    geometry_msgs::TransformStamped tf_base_optical_rgb = make_tf( camera_external_.t_base_cam_origin_
+                                                                   * camera_internal_.t_origin_leftrgb_base_ *
+                                                                   camera_internal_.t_base_opticenter_ );
+    tf_base_optical_rgb.header.stamp = ros::Time::now();
+    tf_base_optical_rgb.header.frame_id = "r0/base_link";
+    tf_base_optical_rgb.child_frame_id = "r0/realsense_rgb_optical_frame_dbg";
+    tf_broadcaster_.sendTransform( tf_base_optical_rgb );
+    
+  }
 }
 
 int main( int argc, char **argv )

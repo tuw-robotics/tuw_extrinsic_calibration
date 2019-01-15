@@ -2,10 +2,12 @@
   <arg name="calib_file" default="$(find tuw_realsense_d435)/config/intel_rsd435_calib.xml"/>
   <arg name="external_calib_file" default="$(find tuw_realsense_d435)/config/external_calibration.csv"/>
   <arg name="publisher_topic" default="/r0/mount_camera_tof"/>
+  <arg name="debug" default="false"/>
 
   <node name="realsense_transforms_node" pkg="tuw_realsense_d435" type="realsense_transforms_node" output="screen">
     <param name="calib_file" value="$(arg calib_file)"/>
     <param name="external_calib_file" value="$(arg external_calib_file)"/>
     <param name="publisher_topic" value="$(arg publisher_topic)"/>
+    <param name="debug" value="$(arg debug)"/>
   </node>
 </launch>
