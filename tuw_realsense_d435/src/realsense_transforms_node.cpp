@@ -101,14 +101,10 @@ bool RealSenseTransformsNode::readExternalCalibrationFromFile()
   return true;
 }
 
-void RealSenseTransformsNode::readInternalCalibrationFromXML()
+void RealSenseTransformsNode::readFromXml( const std::string &lens_name, Eigen::Vector3d &trans, Eigen::Matrix3d &rot )
 {
-  Eigen::Vector3d trans = Eigen::Vector3d( 0, 0, 0 );
-  Eigen::Matrix3d rot;
-  rot.setIdentity();
-  
   TiXmlDocument xml;
-  ROS_INFO( "loading config file: %s", params().calib_file_.c_str());
+  
   if ( xml.LoadFile( params().calib_file_ ))
   {
     auto config = xml.FirstChild( "Config" );
@@ -118,7 +114,7 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
       TiXmlElement *sibl = param;
       while ( sibl )
       {
-        if ( std::string( sibl->Attribute( "name" )) == std::string( "TranslationLeftRGB" ))
+        if ( std::string( sibl->Attribute( "name" )) == std::string( "Translation" ) + lens_name )
         {
           auto value = sibl->FirstChild( "value" );
           if ( value )
@@ -136,7 +132,7 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
               ROS_ERROR( "lexical cast: cannot cast double (calib xml TranslationLeftRGB)" );
             }
           }
-        } else if ( std::string( sibl->Attribute( "name" )) == std::string( "RotationLeftRGB" ))
+        } else if ( std::string( sibl->Attribute( "name" )) == std::string( "Rotation" ) + lens_name )
         {
           auto vals = sibl->FirstChild( "value" );
           
@@ -173,46 +169,57 @@ void RealSenseTransformsNode::readInternalCalibrationFromXML()
         }
         
       } //end while
-
-//      std::stringstream sstr( "" );
-//      sstr << "Parsed file for camera parameters\n";
-//      sstr << "translation: \n";
-//      sstr << trans << "\n";
-//      sstr << "rotation: \n";
-//      sstr << rot << "\n";
-//      ROS_INFO( "%s\n", sstr.str().c_str());
-      
-      //converting stuff to meters from millimeters;
-      trans = trans / 1000.0;
-      camera_internal_.t_origin_leftrgb_base_.setIdentity();
-      camera_internal_.t_origin_leftrgb_base_.topLeftCorner<3, 3>() = rot;
-      camera_internal_.t_origin_leftrgb_base_.topRightCorner<3, 1>() = trans;
-      //std::cout << "tf_origin_leftrgb " << std::endl;
-      //std::cout << camera_internal_.t_origin_leftrgb_base_ << std::endl;
-      //Eigen::Quaterniond as_q = Eigen::Quaterniond( rot );
-      //std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
-      
-      //invert stuff without relying on less accurate Eigen functions
-      Eigen::Matrix3d rot_t = rot.transpose();
-      Eigen::Vector3d trans_t = -trans;
-      camera_internal_.t_leftrgb_base_origin_.setIdentity();
-      camera_internal_.t_leftrgb_base_origin_.topLeftCorner<3, 3>() = rot_t;
-      camera_internal_.t_leftrgb_base_origin_.topRightCorner<3, 1>() = trans_t;
-      //std::cout << "tf_origin_leftrgb" << std::endl;
-      //std::cout << camera_internal_.t_leftrgb_base_origin_ << std::endl;
-      //as_q = Eigen::Quaterniond( rot_t );
-      //std::cout << "(" << as_q.x() << ", " << as_q.y() << ", " << as_q.z() << ", " << as_q.w() << ")" << std::endl;
-      
-      camera_internal_.t_base_opticenter_.setIdentity();
-      camera_internal_.t_base_opticenter_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix();
-      
-      camera_internal_.t_opticenter_base_.setIdentity();
-      camera_internal_.t_opticenter_base_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix().transpose();
+    } else
+    {
+      ROS_ERROR( "Failed to load config file" );
     }
   } else
   {
     ROS_ERROR( "Failed to load config file" );
   }
+}
+
+void RealSenseTransformsNode::readInternalCalibrationFromXML()
+{
+  Eigen::Vector3d trans = Eigen::Vector3d( 0, 0, 0 );
+  Eigen::Matrix3d rot;
+  rot.setIdentity();
+  
+  readFromXml( "LeftRGB", trans, rot );
+  
+  //converting stuff to meters from millimeters;
+  trans = trans / 1000.0;
+  camera_internal_.t_origin_leftrgb_base_.setIdentity();
+  camera_internal_.t_origin_leftrgb_base_.topLeftCorner<3, 3>() = rot;
+  camera_internal_.t_origin_leftrgb_base_.topRightCorner<3, 1>() = trans;
+  
+  //invert stuff without relying on less accurate Eigen functions
+  Eigen::Matrix3d rot_t = rot.transpose();
+  Eigen::Vector3d trans_t = -trans;
+  camera_internal_.t_leftrgb_base_origin_.setIdentity();
+  camera_internal_.t_leftrgb_base_origin_.topLeftCorner<3, 3>() = rot_t;
+  camera_internal_.t_leftrgb_base_origin_.topRightCorner<3, 1>() = trans_t;
+  
+  camera_internal_.t_base_opticenter_.setIdentity();
+  camera_internal_.t_base_opticenter_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix();
+  
+  camera_internal_.t_opticenter_base_.setIdentity();
+  camera_internal_.t_opticenter_base_.topLeftCorner<3, 3>() = camera_internal_.q_basecam_cam_.toRotationMatrix().transpose();
+  
+  Eigen::Matrix3d rot_left_right;
+  Eigen::Vector3d trans_left_right;
+  readFromXml( "LeftRight", trans_left_right, rot_left_right );
+  
+  trans_left_right = trans_left_right / 1000.0;
+  auto trans_right_left = -trans_left_right;
+  auto rot_right_left = rot_left_right.transpose();
+  
+  Eigen::Matrix4d t_right_left;
+  t_right_left.setIdentity();
+  t_right_left.topLeftCorner<3, 3>() = rot_right_left;
+  t_right_left.topRightCorner<3, 1>() = trans_right_left;
+  
+  camera_internal_.t_infrabase_origin_ = t_right_left * camera_internal_.t_leftrgb_base_origin_;
 }
 
 void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformConstPtr &tf_base_cam_optical_center )
@@ -294,6 +301,14 @@ void RealSenseTransformsNode::publish()
     tf_base_optical_rgb.header.frame_id = "r0/base_link";
     tf_base_optical_rgb.child_frame_id = "r0/realsense_rgb_optical_frame_dbg";
     tf_broadcaster_.sendTransform( tf_base_optical_rgb );
+    
+    geometry_msgs::TransformStamped tf_base_infra = make_tf(
+        camera_external_.t_base_cam_origin_ * camera_internal_.t_infrabase_origin_.inverse());
+    
+    tf_base_infra.header.stamp = ros::Time::now();
+    tf_base_infra.header.frame_id = "r0/base_link";
+    tf_base_infra.child_frame_id = "r0/realsense_rgb_infra_frame_dbg";
+    tf_broadcaster_.sendTransform( tf_base_infra );
     
   }
 }

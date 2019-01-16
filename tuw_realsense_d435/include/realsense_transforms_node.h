@@ -34,6 +34,9 @@ namespace tuw
       {
         t_origin_leftrgb_base_.setIdentity();
         t_leftrgb_base_origin_.setIdentity();
+        t_opticenter_base_.setIdentity();
+        t_base_opticenter_.setIdentity();
+        t_infrabase_origin_.setIdentity();
         q_basecam_cam_.x() = -0.5;
         q_basecam_cam_.y() = 0.5;
         q_basecam_cam_.z() = -0.5;
@@ -44,6 +47,7 @@ namespace tuw
       Eigen::Matrix4d t_leftrgb_base_origin_;
       Eigen::Matrix4d t_opticenter_base_;
       Eigen::Matrix4d t_base_opticenter_;
+      Eigen::Matrix4d t_infrabase_origin_;
       Eigen::Quaterniond q_basecam_cam_;
     };
     
@@ -71,6 +75,8 @@ namespace tuw
     geometry_msgs::TransformStamped make_tf( const Eigen::Matrix4d &tf );
     
     void publish();
+    
+    void readFromXml( const std::string &lens_name_, Eigen::Vector3d &trans, Eigen::Matrix3d &rot );
     
     void callbackTransform( const geometry_msgs::TransformConstPtr &tf_base_cam_origin );
     
