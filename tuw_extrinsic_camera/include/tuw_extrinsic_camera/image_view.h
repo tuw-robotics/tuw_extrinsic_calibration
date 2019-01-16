@@ -66,10 +66,12 @@
 
 #include <tf2_ros/transform_listener.h>
 
-namespace tuw_extrinsic_camera {
+namespace tuw_extrinsic_camera
+{
   
   class ImageView
-      : public rqt_gui_cpp::Plugin {
+      : public rqt_gui_cpp::Plugin
+  {
   
   Q_OBJECT
   
@@ -166,9 +168,11 @@ namespace tuw_extrinsic_camera {
     virtual bool getStaticTF( const std::string &world_frame, const std::string &source_frame,
                               geometry_msgs::TransformStampedPtr &tf, bool debug );
     
-    struct PnPData {
+    struct PnPData
+    {
     public:
-      PnPData() {
+      PnPData()
+      {
       }
       
       std::vector<cv::Point2f> image_points;
@@ -178,7 +182,8 @@ namespace tuw_extrinsic_camera {
       
     };
     
-    struct SliderProperties {
+    struct SliderProperties
+    {
     public:
       double leftSplitAngle_ = M_PI / 2.0;
       double rightSplitAngle_ = -M_PI / 2.0;
@@ -196,35 +201,42 @@ namespace tuw_extrinsic_camera {
       std::mutex self_mutex;
     };
     
-    struct ImageProperties {
+    struct ImageProperties
+    {
     public:
       std::vector<std::pair<cv::Point2d, cv::Scalar>> laser2image_points_colored_;
-      boost::circular_buffer<cv::Point2d> clickedPoints_;
+      std::vector<cv::Point2d> clickedPoints_;
       cv::Mat conversion_mat_ = cv::Mat::zeros( 0, 0, CV_8U );
       std::unique_ptr<tuw::ImageMeasurement> measurement_image_;
       
-      bool has_image_measurement() {
+      bool has_image_measurement()
+      {
         //save according to stackoverflow...
         return measurement_image_ != nullptr;
       }
       
     };
     
-    struct LaserProperties {
+    struct LaserProperties
+    {
     
     public:
       std::unique_ptr<tuw::LaserMeasurement> measurement_laser_;
       tuw::FigurePtr figure_local_;
       
-      bool has_laser_measurement() {
+      bool has_laser_measurement()
+      {
         //save according to stackoverflow...
         return measurement_laser_ != nullptr;
       }
       
-      bool is_figure_initialized() {
-        if ( figure_local_ ) {
+      bool is_figure_initialized()
+      {
+        if ( figure_local_ )
+        {
           return figure_local_->initialized();
-        } else {
+        } else
+        {
           return false;
         }
       }
@@ -269,11 +281,13 @@ namespace tuw_extrinsic_camera {
     
     std::mutex self_mutex_;
     
-    void lock() {
+    void lock()
+    {
       self_mutex_.lock();
     }
     
-    void unlock() {
+    void unlock()
+    {
       self_mutex_.unlock();
     }
     //message_filters::Subscriber<geometry_msgs::TransformStampedPtr> tf_sub_;

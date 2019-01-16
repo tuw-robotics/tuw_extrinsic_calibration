@@ -56,6 +56,7 @@ namespace tuw_extrinsic_camera
       : rqt_gui_cpp::Plugin(), widget_( 0 ), num_gridlines_( 0 ), tf_buffer_( ros::Duration( 100, 0 )),
         tf_listener_( tf_buffer_ )
   {
+    pnp_data_ = nullptr;
     setObjectName( "ImageView" );
   }
   
@@ -147,7 +148,7 @@ namespace tuw_extrinsic_camera
     ui_.sliderLeftLaserD->setValue( sliders_.ui_slider_dist_max_ * 0.5 );
     ui_.sliderRightLaserD->setValue( sliders_.ui_slider_dist_max_ * 0.5 );
     
-    image_properties_.clickedPoints_ = boost::circular_buffer<cv::Point2d>( 4 );
+    image_properties_.clickedPoints_ = std::vector<cv::Point2d>( 0 );
     
     laser_properties_.figure_local_.reset( new tuw::Figure( "laser2map" ));
     laser_properties_.figure_local_->init( 700, 700, -0.5, 8, -5, 5, M_PI / 2.0, 1, 1 );
@@ -599,6 +600,14 @@ namespace tuw_extrinsic_camera
       clickCanvasLocation.z = 0;
       
       lock();
+      
+      if ( image_properties_.clickedPoints_.size() == 4 )
+      {
+        unlock();
+        //ToDo: more useful mechanism here
+        return;
+      }
+      
       image_properties_.clickedPoints_.push_back( cv::Point2d( clickCanvasLocation.x, clickCanvasLocation.y ));
       cv::circle( image_properties_.conversion_mat_,
                   image_properties_.clickedPoints_.back(),
@@ -955,32 +964,31 @@ namespace tuw_extrinsic_camera
         T_WL = laser_properties_.measurement_laser_->getTfWorldSensor();
       }
       
-      Eigen::Vector4d left_beam_base = T_WL * leftMostPnt;
+      leftMostPnt = T_WL * leftMostPnt;
       leftMostPnt = leftMostPnt / leftMostPnt[3];
-      Eigen::Vector4d right_beam_base = T_WL * rightMostPnt;
+      rightMostPnt = T_WL * rightMostPnt;
       rightMostPnt = rightMostPnt / rightMostPnt[3];
       
-      size_t point_count = 0;
-      for ( const cv::Point2d &pt : image_properties_.clickedPoints_ )
+      for ( int i_clk = 0; i_clk < 4; ++i_clk )
       {
         
         cv::Point3d object_point;
-        if ( point_count == 0 )
+        if ( i_clk == 0 )
         {
           object_point.x = leftMostPnt.x();
           object_point.y = leftMostPnt.y();
           object_point.z = 0;
-        } else if ( point_count == 1 )
+        } else if ( i_clk == 1 )
         {
           object_point.x = leftMostPnt.x();
           object_point.y = leftMostPnt.y();
           object_point.z = 2.0f;
-        } else if ( point_count == 2 )
+        } else if ( i_clk == 2 )
         {
           object_point.x = rightMostPnt.x();
           object_point.y = rightMostPnt.y();
           object_point.z = 2.0f;
-        } else if ( point_count == 3 )
+        } else if ( i_clk == 3 )
         {
           object_point.x = rightMostPnt.x();
           object_point.y = rightMostPnt.y();
@@ -988,24 +996,30 @@ namespace tuw_extrinsic_camera
         }
         
         object_points.push_back( object_point );
-        point_count++;
         
       }
       
       if ( !pnp_data_ )
       {
         pnp_data_.reset( new PnPData());
+        pnp_data_->image_points = std::vector<cv::Point2f>( 0 );
+        pnp_data_->object_points = std::vector<cv::Point3f>( 0 );
         pnp_data_->K = image_properties_.measurement_image_->getCameraModel()->intrinsicMatrix();
         pnp_data_->D = cv::Mat::zeros( cv::Size( 1, 5 ), CV_64F );
       }
       
       cv::Mat rv, tv;
       
-      pnp_data_->image_points.insert( std::begin( pnp_data_->image_points ),
-                                      std::begin( image_properties_.clickedPoints_ ),
-                                      std::end( image_properties_.clickedPoints_ ));
-      pnp_data_->object_points.insert( std::begin( pnp_data_->object_points ), std::begin( object_points ),
-                                       std::end( object_points ));
+      std::cout << "size of clicked points " << image_properties_.clickedPoints_.size() << std::endl;
+      for ( std::size_t i_pnt = 0; i_pnt < image_properties_.clickedPoints_.size(); ++i_pnt )
+      {
+        auto img_pnt = image_properties_.clickedPoints_[i_pnt];
+        pnp_data_->image_points.push_back( img_pnt );
+        std::cout << "img coords (" << img_pnt.x << ", " << img_pnt.y << ")" << std::endl;
+        auto obj_pnt = object_points[i_pnt];
+        pnp_data_->object_points.push_back( obj_pnt );
+        std::cout << "obj coords (" << obj_pnt.x << ", " << obj_pnt.y << ", " << obj_pnt.z << ")" << std::endl;
+      }
       
       cv::solvePnP( pnp_data_->object_points,
                     pnp_data_->image_points,
@@ -1028,8 +1042,18 @@ namespace tuw_extrinsic_camera
         image_properties_.measurement_image_->setTfWorldSensor( T_WC, true );
       }
       
+      std::cout << "===== all points used =====" << std::endl;
+      for ( std::size_t i_pnt = 0; i_pnt < pnp_data_->object_points.size(); ++i_pnt )
+      {
+        auto &obj_pnt = pnp_data_->object_points[i_pnt];
+        std::cout << "obj coords (" << obj_pnt.x << ", " << obj_pnt.y << ", " << obj_pnt.z << ")" << std::endl;
+        auto &img_pnt = pnp_data_->image_points[i_pnt];
+        std::cout << "img coords (" << img_pnt.x << ", " << img_pnt.y << ")" << std::endl;
+      }
+      std::cout << "==========" << std::endl;
+      
       std::ofstream fs;
-      fs.open( "/home/felix/cam_calib_debug_vals.txt" );
+      fs.open( "/home/felix/cam_calib_debug_vals.txt", std::ofstream::app | std::ofstream::out );
       fs << "======================\n";
       fs << "    TF estimated\n\n";
       fs << T_WC << "\n";

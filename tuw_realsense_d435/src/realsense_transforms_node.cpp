@@ -297,6 +297,7 @@ void RealSenseTransformsNode::publish()
     geometry_msgs::TransformStamped tf_base_optical_rgb = make_tf( camera_external_.t_base_cam_origin_
                                                                    * camera_internal_.t_origin_leftrgb_base_ *
                                                                    camera_internal_.t_base_opticenter_ );
+    
     tf_base_optical_rgb.header.stamp = ros::Time::now();
     tf_base_optical_rgb.header.frame_id = "r0/base_link";
     tf_base_optical_rgb.child_frame_id = "r0/realsense_rgb_optical_frame_dbg";
