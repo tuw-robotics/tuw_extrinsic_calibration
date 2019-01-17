@@ -24,6 +24,7 @@ namespace tuw
       std::string external_calib_file_;
       std::string calib_file_;
       bool debug_;
+      bool passthrough_;
       
     };
     

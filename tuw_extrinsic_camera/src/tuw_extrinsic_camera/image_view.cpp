@@ -57,7 +57,7 @@ namespace tuw_extrinsic_camera
         tf_listener_( tf_buffer_ )
   {
     pnp_data_ = nullptr;
-    setObjectName( "ImageView" );
+    setObjectName( "ExtrinsicCalibration" );
   }
   
   void ImageView::initPlugin( qt_gui_cpp::PluginContext &context )
@@ -964,10 +964,15 @@ namespace tuw_extrinsic_camera
         T_WL = laser_properties_.measurement_laser_->getTfWorldSensor();
       }
       
+      std::cout << "laser tf " << T_WL << std::endl;
+      
       leftMostPnt = T_WL * leftMostPnt;
       leftMostPnt = leftMostPnt / leftMostPnt[3];
       rightMostPnt = T_WL * rightMostPnt;
       rightMostPnt = rightMostPnt / rightMostPnt[3];
+      
+      std::cout << "leftmost " << leftMostPnt << std::endl;
+      std::cout << "rightmost " << rightMostPnt << std::endl;
       
       for ( int i_clk = 0; i_clk < 4; ++i_clk )
       {
@@ -1035,8 +1040,18 @@ namespace tuw_extrinsic_camera
         pnp_data_->T_CW.row( i ).col( 3 ) = tv.at<double>( i );
       }
       
-      Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>> T_CW(
-          reinterpret_cast<double *>(pnp_data_->T_CW.data));
+      //Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>> T_CW(
+      //    reinterpret_cast<double *>(pnp_data_->T_CW.data));
+      
+      Eigen::Matrix4d T_CW;
+      for ( int r = 0; r < T_CW.rows(); ++r )
+      {
+        for ( int c = 0; c < T_CW.cols(); ++c )
+        {
+          T_CW( r, c ) = pnp_data_->T_CW.at<double>( r, c );
+        }
+      }
+      
       Eigen::Matrix4d T_WC = T_CW.inverse();
       {
         image_properties_.measurement_image_->setTfWorldSensor( T_WC, true );
@@ -1062,6 +1077,12 @@ namespace tuw_extrinsic_camera
       fs << T_WC( 0, 3 ) << " " << T_WC( 1, 3 ) << " " << T_WC( 2, 3 ) << " " << ypr[0] << " " << ypr[1] << " "
          << ypr[2] << "\n";
       fs << "======================\n";
+      
+      std::cout << "TF estimated " << std::endl;
+      std::cout << T_WC << "\n";
+      Eigen::Quaterniond q_wc( T_WC.topLeftCorner<3, 3>());
+      std::cout << "q: " << "( " << q_wc.x() << ", " << q_wc.y() << ", " << q_wc.z() << ", " << q_wc.w() << ")"
+                << std::endl;
       
       updateLaser2Image();
       updateLaser2Map();

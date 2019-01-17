@@ -15,6 +15,7 @@ RealSenseTransformsNode::ParametersNode::ParametersNode() : nh_( "~" )
   init_success &= nh_.param<std::string>( "external_calib_file", external_calib_file_, "" );
   init_success &= nh_.param<std::string>( "publisher_topic", publisher_topic_, "/r0/realsense" );
   nh_.param<bool>( "debug", debug_, false );
+  nh_.param<bool>( "passthrough", passthrough_, false );
   
   if ( !init_success )
   {
@@ -95,7 +96,6 @@ bool RealSenseTransformsNode::readExternalCalibrationFromFile()
   }
   
   std::cout << "tf_base_cam_optical_frame " << tf_base_cam_optical_frame << std::endl;
-  
   doTransform( tf_base_cam_optical_frame );
   
   return true;
@@ -239,11 +239,17 @@ void RealSenseTransformsNode::callbackTransform( const geometry_msgs::TransformC
 
 void RealSenseTransformsNode::doTransform( const Eigen::Matrix4d &tf_base_cam_optical_frame )
 {
-  camera_external_.t_base_cam_origin_ =
-      tf_base_cam_optical_frame *
-      camera_internal_.t_opticenter_base_ *
-      camera_internal_.t_leftrgb_base_origin_;
-  
+  if ( !param_.passthrough_ )
+  {
+    camera_external_.t_base_cam_origin_ =
+        tf_base_cam_optical_frame *
+        camera_internal_.t_opticenter_base_ *
+        camera_internal_.t_leftrgb_base_origin_;
+    
+  } else
+  {
+    camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame;
+  }
   //@TODO: debug delete
   //camera_external_.t_base_cam_origin_ = tf_base_cam_optical_frame;
   //camera_external_.t_base_cam_origin_.topLeftCorner<3, 3>().setIdentity();
