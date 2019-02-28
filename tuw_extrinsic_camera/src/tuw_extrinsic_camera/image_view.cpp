@@ -660,7 +660,7 @@ namespace tuw_extrinsic_camera
       sliders_.currentLeftRange = 100;
       sliders_.currentRightRange = 100;
       
-      for ( std::vector<tuw::Contour::Beam>::iterator it_l = laser_properties_.measurement_laser_->begin();
+      for ( std::vector<tuw::Beam>::iterator it_l = laser_properties_.measurement_laser_->begin();
             it_l != laser_properties_.measurement_laser_->end();
             ++it_l )
       {
@@ -927,10 +927,10 @@ namespace tuw_extrinsic_camera
       Eigen::Vector4d rightMostPnt;
       Eigen::Matrix4d T_WL;
       {
-        std::vector<tuw::Contour::Beam> laser_beams( laser_properties_.measurement_laser_->size());
+        std::vector<tuw::Beam> laser_beams( laser_properties_.measurement_laser_->size());
         auto end_it = std::copy_if( laser_properties_.measurement_laser_->begin(),
                                     laser_properties_.measurement_laser_->end(), laser_beams.begin(),
-                                    []( const tuw::Contour::Beam &b )
+                                    []( const tuw::Beam &b )
                                     {
                                       if ( b.is_valid())
                                       {
@@ -938,6 +938,7 @@ namespace tuw_extrinsic_camera
                                       }
                                       return false;
                                     } );
+        
         laser_beams.resize( std::distance( laser_beams.begin(), end_it ));
         
         if ( fabs( sliders_.distance_adjustment_left_ ) < std::numeric_limits<double>::epsilon())
